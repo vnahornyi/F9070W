@@ -16,6 +16,25 @@ Item entry:
     0x20  unknown
     0x24  filename[256]
     0x124 stored_len, pad, original_len, pad, offset
+
+Payload layout (measured on the stock image, all 25 items):
+    offset is a multiple of 1024
+    [offset, offset+length)            payload
+    [offset+length, offset+stored_len) zero fill, stored_len == align(length, 16)
+    up to the next multiple of 1024    0xCD fill
+
+dlinfo.fex (partition DLINFO) — download descriptor, pairs each flashed
+partition with the partition holding its checksum:
+    0x00  magic 0xfdce73ab
+    0x10  record count
+    0x20  records, 72 bytes each
+
+dlinfo record:
+    0x00  name[16]
+    0x10  unknown, start_sector, unknown, size_sectors  (u32 each)
+    0x20  subtype[16]        matches an item subtype
+    0x30  vsubtype[16]       item subtype holding its V-sum
+    0x40  unknown, unknown   (u32 each)
 """
 import struct
 from dataclasses import dataclass
@@ -23,6 +42,18 @@ from dataclasses import dataclass
 MAGIC = b'IMAGEWTY'
 ITEM_TABLE = 0x400
 ITEM_SIZE = 1024
+PAD_BYTE = 0xCD
+ALIGN = 1024
+STORED_ALIGN = 16
+
+DLINFO_NAME = 'dlinfo.fex'
+DLINFO_MAGIC = 0xfdce73ab
+DLINFO_RECORDS = 0x20
+DLINFO_RECORD_SIZE = 72
+
+# data_udisk.fex is the ROOTFS payload; its length is declared in two places
+# outside the image, so it may not change. See the ValueError below.
+FIXED_SIZE_PARTITION = 'data_udisk.fex'
 
 
 @dataclass
@@ -52,3 +83,76 @@ def parse(data: bytes) -> list[Item]:
 
 def extract(data: bytes, item: Item) -> bytes:
     return data[item.offset:item.offset + item.length]
+
+
+def vsum(partition: bytes) -> bytes:
+    """V-partition value: 32-bit sum of little-endian u32 words, mod 2**32."""
+    if len(partition) % 4:
+        raise ValueError('partition length is not a multiple of 4')
+    words = struct.unpack_from('<%dI' % (len(partition) // 4), partition)
+    return struct.pack('<I', sum(words) & 0xffffffff)
+
+
+def _v_pairs(dlinfo: bytes) -> dict[str, str]:
+    """Map subtype -> V-subtype, as declared by the dlinfo.fex partition."""
+    if struct.unpack_from('<I', dlinfo, 0)[0] != DLINFO_MAGIC:
+        raise ValueError('not a dlinfo partition')
+    count = struct.unpack_from('<I', dlinfo, 0x10)[0]
+    pairs = {}
+    for i in range(count):
+        p = DLINFO_RECORDS + i * DLINFO_RECORD_SIZE
+        subtype = dlinfo[p + 0x20:p + 0x30].decode('ascii', 'replace')
+        vsubtype = dlinfo[p + 0x30:p + 0x40].decode('ascii', 'replace')
+        pairs[subtype] = vsubtype
+    return pairs
+
+
+def build(image: bytes, replace: dict[str, bytes]) -> bytes:
+    """Rebuild the image with the named partitions replaced.
+
+    Header, item table and every unexplained byte are carried over from
+    `image`; only offset/stored_len/length, image_size and the V-partitions
+    of replaced partitions are recomputed.
+    """
+    items = parse(image)
+    by_name = {it.name: it for it in items}
+    unknown = set(replace) - set(by_name)
+    if unknown:
+        raise ValueError('no such partition: %s' % ', '.join(sorted(unknown)))
+
+    stock = by_name.get(FIXED_SIZE_PARTITION)
+    new = replace.get(FIXED_SIZE_PARTITION)
+    if stock is not None and new is not None and len(new) != stock.length:
+        raise ValueError(
+            '%s must stay %d bytes, got %d: its size is declared outside the '
+            'image, by sys_partition_nor.fex (size=28544 sectors) and '
+            'rootfs_ini.tmp (size=14272 KB), which this builder does not '
+            'rewrite' % (FIXED_SIZE_PARTITION, stock.length, len(new))
+        )
+
+    payload = {it.name: replace.get(it.name, extract(image, it)) for it in items}
+
+    pairs = _v_pairs(payload[DLINFO_NAME])
+    v_of = {}
+    for it in items:
+        vsubtype = pairs.get(it.subtype)
+        if vsubtype is not None:
+            v_of[it.name] = [x for x in items if x.subtype == vsubtype]
+    for name in replace:
+        for v in v_of.get(name, ()):
+            payload[v.name] = vsum(payload[name])
+
+    out = bytearray(image[:ITEM_TABLE + len(items) * ITEM_SIZE])
+    for i, it in enumerate(items):
+        data = payload[it.name]
+        stored = (len(data) + STORED_ALIGN - 1) // STORED_ALIGN * STORED_ALIGN
+        offset = len(out)
+        assert offset % ALIGN == 0
+        out += data
+        out += bytes(stored - len(data))
+        out += bytes([PAD_BYTE]) * (-len(out) % ALIGN)
+        p = ITEM_TABLE + i * ITEM_SIZE + 36 + 256
+        _, pad1, _, pad2, _ = struct.unpack_from('<5I', image, p)
+        struct.pack_into('<5I', out, p, stored, pad1, len(data), pad2, offset)
+    struct.pack_into('<I', out, 0x18, len(out))
+    return bytes(out)
