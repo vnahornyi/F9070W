@@ -1,0 +1,16 @@
+[project]
+name = "f9070w"
+version = "0.1.0"
+description = "Reverse-engineering toolchain for F9070W (Allwinner F133/D1s) firmware"
+requires-python = ">=3.12"
+dependencies = ["pillow"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["formats"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["stock: needs a full stock/ tree unpacked from the firmware image"]
