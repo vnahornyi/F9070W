@@ -120,6 +120,19 @@ def build(image: bytes, replace: dict[str, bytes]) -> bytes:
     if unknown:
         raise ValueError('no such partition: %s' % ', '.join(sorted(unknown)))
 
+    # The vendor image ships boot_pkg_uboot_nor.fex twice, under two subtypes.
+    # We do not know why, so a name that hits both is refused rather than
+    # resolved: guessing would rewrite a bootloader the caller did not mean.
+    for name in replace:
+        clash = [it for it in items if it.name == name]
+        if len(clash) > 1:
+            raise ValueError(
+                '%s is ambiguous: %d items carry that name, with subtypes %s '
+                '- build() will not guess which one you meant'
+                % (name, len(clash),
+                   ', '.join(repr(it.subtype) for it in clash))
+            )
+
     stock = by_name.get(FIXED_SIZE_PARTITION)
     new = replace.get(FIXED_SIZE_PARTITION)
     if stock is not None and new is not None and len(new) != stock.length:
@@ -130,21 +143,22 @@ def build(image: bytes, replace: dict[str, bytes]) -> bytes:
             'rewrite' % (FIXED_SIZE_PARTITION, stock.length, len(new))
         )
 
-    payload = {it.name: replace.get(it.name, extract(image, it)) for it in items}
+    # Indexed by item, not by name: two items may share a name.
+    payload = [replace.get(it.name, extract(image, it)) for it in items]
 
-    pairs = _v_pairs(payload[DLINFO_NAME])
-    v_of = {}
-    for it in items:
+    pairs = _v_pairs(next(payload[i] for i, it in enumerate(items)
+                          if it.name == DLINFO_NAME))
+    for i, it in enumerate(items):
         vsubtype = pairs.get(it.subtype)
-        if vsubtype is not None:
-            v_of[it.name] = [x for x in items if x.subtype == vsubtype]
-    for name in replace:
-        for v in v_of.get(name, ()):
-            payload[v.name] = vsum(payload[name])
+        if vsubtype is None or it.name not in replace:
+            continue
+        for j, other in enumerate(items):
+            if other.subtype == vsubtype:
+                payload[j] = vsum(payload[i])
 
     out = bytearray(image[:ITEM_TABLE + len(items) * ITEM_SIZE])
     for i, it in enumerate(items):
-        data = payload[it.name]
+        data = payload[i]
         stored = (len(data) + STORED_ALIGN - 1) // STORED_ALIGN * STORED_ALIGN
         offset = len(out)
         assert offset % ALIGN == 0

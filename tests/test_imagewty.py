@@ -35,6 +35,9 @@ V_PAIRS = [('data_udisk.fex', 'Vdata_udisk.fex', 0x1e3c76a1),
 IMAGE_SIZE = 18252800
 DATA_UDISK_LEN = 14614528
 
+AMBIGUOUS_NAME = 'boot_pkg_uboot_nor.fex'
+AMBIGUOUS_SUBTYPES = ['BOOTPKG-00000000', 'BOOTPKG-NOR00000']
+
 
 @pytest.fixture(scope='module')
 def img(stock) -> bytes:
@@ -287,3 +290,51 @@ def test_resizing_data_udisk_raises_and_names_the_two_declarations(img, delta):
 def test_replacing_an_unknown_partition_raises(img):
     with pytest.raises(ValueError, match='no such partition'):
         imagewty.build(img, {'nope.fex': b''})
+
+
+@pytest.mark.stock
+def test_exactly_one_item_name_is_used_twice(items):
+    """Pinned deliberately: a name is not a unique address in this format.
+
+    The vendor ships the u-boot package under two subtypes with one filename.
+    If a future image stops doing this, or starts doing it to another
+    partition, this is where we find out.
+    """
+    repeated = {n: c for n, c in
+                collections.Counter(it.name for it in items).items() if c > 1}
+    assert repeated == {AMBIGUOUS_NAME: 2}
+    assert [it.subtype for it in items if it.name == AMBIGUOUS_NAME] == \
+           AMBIGUOUS_SUBTYPES
+
+
+@pytest.mark.stock
+def test_the_two_uboot_package_items_are_distinct_partitions(img, items):
+    """Same name, same bytes today - but two separate table entries."""
+    clash = [it for it in items if it.name == AMBIGUOUS_NAME]
+    assert clash[0].offset != clash[1].offset
+    assert len({it.subtype for it in clash}) == 2
+    assert imagewty.extract(img, clash[0]) == imagewty.extract(img, clash[1])
+
+
+@pytest.mark.stock
+def test_replacing_an_ambiguous_name_raises_and_names_both_subtypes(img, items):
+    part = imagewty.extract(img, next(it for it in items
+                                      if it.name == AMBIGUOUS_NAME))
+    with pytest.raises(ValueError) as e:
+        imagewty.build(img, {AMBIGUOUS_NAME: part})
+    assert AMBIGUOUS_NAME in str(e.value)
+    for subtype in AMBIGUOUS_SUBTYPES:
+        assert subtype in str(e.value)
+
+
+@pytest.mark.stock
+def test_the_ambiguity_guard_leaves_unambiguous_replacement_working(img, items):
+    """The guard must fire on the collision only, never on a neighbour."""
+    by_name = {it.name: it for it in items}
+    part = bytearray(imagewty.extract(img, by_name['u-boot_nor.fex']))
+    part[0x20] ^= 0xff
+    out = imagewty.build(img, {'u-boot_nor.fex': bytes(part)})
+
+    assert touched(img, out, [(by_name['u-boot_nor.fex'].offset + 0x20,
+                               by_name['u-boot_nor.fex'].offset + 0x21)]) == [0]
+    assert imagewty.build(img, {}) == img
