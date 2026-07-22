@@ -6,6 +6,7 @@
     python3 tools/unpack.py --png            # also export every sprite as PNG
 
 Produces:
+    stock/<name>.img    the pristine image, kept for byte-identical rebuild tests
     stock/partitions/   the 25 IMAGEWTY partitions
     stock/rootfs/       the MINFS tree from data_udisk.fex
     stock/png/<Screen>/NN.png
@@ -24,16 +25,42 @@ ROOT = os.path.join(os.path.dirname(__file__), '..')
 STOCK = os.path.join(ROOT, 'stock')
 
 
+def stock_image() -> str | None:
+    """The pristine image kept in stock/, whatever the vendor named it."""
+    if not os.path.isdir(STOCK):
+        return None
+    for n in sorted(os.listdir(STOCK)):
+        if n.lower().endswith('.img'):
+            return os.path.join(STOCK, n)
+    return None
+
+
+def keep_image(path: str) -> str:
+    """Park the source image at stock/<name>.img so rebuilds can diff against it."""
+    os.makedirs(STOCK, exist_ok=True)
+    dst = os.path.join(STOCK, os.path.basename(path))
+    if os.path.abspath(path) != os.path.abspath(dst):
+        shutil.copy2(path, dst)
+    print(f'image -> {dst}')
+    return dst
+
+
 def from_rar(path: str) -> str:
-    dst = os.path.join(STOCK, '_rar')
-    shutil.rmtree(dst, ignore_errors=True)
-    os.makedirs(dst, exist_ok=True)
-    subprocess.run(['bsdtar', '-xf', path, '-C', dst], check=True)
-    for base, _, names in os.walk(dst):
-        for n in names:
-            if n.lower().endswith('.img'):
-                return os.path.join(base, n)
-    raise SystemExit('no .img found inside the archive')
+    tmp = os.path.join(STOCK, '_rar')
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    subprocess.run(['bsdtar', '-xf', path, '-C', tmp], check=True)
+    try:
+        for base, _, names in os.walk(tmp):
+            for n in names:
+                if n.lower().endswith('.img'):
+                    dst = os.path.join(STOCK, n)
+                    os.replace(os.path.join(base, n), dst)
+                    print(f'image -> {dst}')
+                    return dst
+        raise SystemExit('no .img found inside the archive')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def unpack_partitions(img: str) -> str:
@@ -79,11 +106,24 @@ def unpack_rootfs(part: str):
     return out
 
 
-def export_png(rootfs: str):
+def sprite_image(sp):
+    """PIL image for one sprite, or None when its depth is not exportable."""
     try:
         from PIL import Image
     except ImportError:
         raise SystemExit('pip install pillow')
+    px = sp.pixels()
+    size = (sp.width, sp.height)
+    if sp.depth == 4:
+        return Image.frombytes('RGBA', size, px, 'raw', 'BGRA')
+    if sp.depth == 3:
+        return Image.frombytes('RGB', size, px, 'raw', 'BGR')
+    if sp.depth == 2:
+        return Image.frombytes('RGB', size, px, 'raw', 'BGR;16')
+    return None
+
+
+def export_png(rootfs: str):
     src = os.path.join(rootfs, 'apps/Data')
     out = os.path.join(STOCK, 'png')
     shutil.rmtree(out, ignore_errors=True)
@@ -92,15 +132,8 @@ def export_png(rootfs: str):
         d = open(os.path.join(src, name), 'rb').read()
         screen = name.removesuffix('.data')
         for sp in datav1.sprites(d):
-            px = sp.pixels()
-            size = (sp.width, sp.height)
-            if sp.depth == 4:
-                im = Image.frombytes('RGBA', size, px, 'raw', 'BGRA')
-            elif sp.depth == 3:
-                im = Image.frombytes('RGB', size, px, 'raw', 'BGR')
-            elif sp.depth == 2:
-                im = Image.frombytes('RGB', size, px, 'raw', 'BGR;16')
-            else:
+            im = sprite_image(sp)
+            if im is None:
                 print(f'  skip {screen}/{sp.idx}: depth {sp.depth}')
                 continue
             os.makedirs(os.path.join(out, screen), exist_ok=True)
@@ -117,7 +150,8 @@ def main():
 
     rootfs_dir = os.path.join(STOCK, 'rootfs')
     if args.source:
-        img = from_rar(args.source) if args.source.lower().endswith('.rar') else args.source
+        img = (from_rar(args.source) if args.source.lower().endswith('.rar')
+               else keep_image(args.source))
         part = unpack_partitions(img)
         rootfs_dir = unpack_rootfs(part)
     elif not os.path.isdir(rootfs_dir):
