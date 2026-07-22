@@ -84,15 +84,22 @@ class Sprite:
                         for y in range(self.height))
 
     def pack(self, pixels: bytes) -> bytes:
-        """Inverse of pixels(): re-add row padding to a tightly packed buffer."""
+        """Inverse of pixels(): re-add row padding to a tightly packed buffer.
+
+        The padding bytes are lifted from this sprite's own stored buffer, not
+        synthesised, so pack(pixels()) reproduces decode() byte for byte. Their
+        meaning is unknown, so a replaced sprite keeps the padding of the sprite
+        it replaces rather than having it zeroed.
+        """
         row = self.width * self.depth
         if len(pixels) != row * self.height:
             raise ValueError(f'sprite {self.idx}: expected {row * self.height} '
                              f'bytes of pixels, got {len(pixels)}')
         if self.stride == row:
             return pixels
-        pad = b'\0' * (self.stride - row)
-        return b''.join(pixels[y * row:(y + 1) * row] + pad
+        raw = self.decode()
+        return b''.join(pixels[y * row:(y + 1) * row] +
+                        raw[y * self.stride + row:(y + 1) * self.stride]
                         for y in range(self.height))
 
 

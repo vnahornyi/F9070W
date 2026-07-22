@@ -72,11 +72,6 @@ def test_pack_of_pixels_reproduces_unpadded_sprites(golden, name):
             assert sp.pack(sp.pixels()) == sp.decode()
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    'Sprite.pack zero-fills the row padding, but 543 of the 1128 stock sprites '
-    'store non-zero bytes there, so pack(pixels(x)) != decode(x). '
-    'volumebar.data sprite 1 is the smallest reproducer. Production bug in '
-    'formats/datav1.py, left unfixed by design in this block.'))
 def test_pack_of_pixels_reproduces_the_stored_buffer(golden):
     for name in GOLDEN_NAMES:
         for sp in datav1.sprites(golden[name]):
@@ -84,8 +79,8 @@ def test_pack_of_pixels_reproduces_the_stored_buffer(golden):
 
 
 @pytest.mark.stock
-def test_padding_loss_affects_exactly_543_stock_sprites(stock):
-    """Measured scope of the pack() padding bug, so a fix is noticed here."""
+def test_no_stock_sprite_loses_its_row_padding(stock):
+    """pack() carries the padding verbatim, so nothing is lost on any sprite."""
     total = lossy = 0
     for _, blob in all_stock_screens(stock):
         for sp in datav1.sprites(blob):
@@ -93,7 +88,27 @@ def test_padding_loss_affects_exactly_543_stock_sprites(stock):
             if sp.pack(sp.pixels()) != sp.decode():
                 lossy += 1
     assert total == 1128
-    assert lossy == 543
+    assert lossy == 0
+
+
+def test_non_zero_row_padding_survives_a_rebuild(golden):
+    """volumebar.data sprite 1 pads its rows with non-zero bytes.
+
+    Zero-filling them used to alter 543 of the 1128 stock sprites on a rebuild
+    that was supposed to change nothing. Their meaning is unknown, so the only
+    safe behaviour is to carry them through.
+    """
+    d = golden['volumebar.data']
+    sp = datav1.sprites(d)[1]
+    row = sp.width * sp.depth
+    raw = sp.decode()
+    padding = b''.join(raw[y * sp.stride + row:(y + 1) * sp.stride]
+                       for y in range(sp.height))
+    assert sp.stride > row
+    assert padding.strip(b'\0')
+
+    out = datav1.rebuild(d, {sp.idx: sp.pack(sp.pixels())})
+    assert datav1.sprites(out)[1].decode() == raw
 
 
 def test_golden_fixtures_cover_depths_two_and_three(golden):
