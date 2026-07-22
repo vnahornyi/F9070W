@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+
+# regenerate with tools/unpack.py — ~40 MB of firmware blobs
+stock/
+out/
+
+.DS_Store

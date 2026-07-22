@@ -1,0 +1,98 @@
+{
+  "task": "F9070W-1",
+  "plan": ".claude/plans/F9070W-1-full-reverse.md",
+  "baseCommit": null,
+  "branch": null,
+  "segments": [
+    {
+      "id": 0,
+      "title": "initial import of current working state",
+      "planSteps": ["4.A T01 (перший коміт поточного стану)"],
+      "files": ["formats/", "tools/", "README.md", ".gitignore"],
+      "dependsOn": [],
+      "verify": "git log --oneline",
+      "status": "pending"
+    },
+    {
+      "id": 1,
+      "title": "repo hygiene: .gitignore + pyproject.toml + pytest",
+      "planSteps": ["4.A T01"],
+      "files": [".gitignore", "pyproject.toml"],
+      "dependsOn": [0],
+      "verify": "./.venv/bin/python -m pytest --version",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "fixtures generator + conftest + unpack keeps original .img",
+      "planSteps": ["4.A T02", "4.A T03", "§2 unpacker дрібні правки"],
+      "files": ["tools/mkfixtures.py", "tests/__init__.py", "tests/conftest.py", "tests/fixtures/", "tools/unpack.py"],
+      "dependsOn": [1],
+      "verify": "./.venv/bin/python -m pytest --collect-only",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "tests for datav1 + minfs + melislzma limits",
+      "planSteps": ["4.B T04", "4.B T05", "§6 test_melislzma"],
+      "files": ["tests/test_datav1.py", "tests/test_minfs.py", "tests/test_melislzma.py"],
+      "dependsOn": [2],
+      "verify": "./.venv/bin/python -m pytest tests/test_datav1.py tests/test_minfs.py tests/test_melislzma.py",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "imagewty: vsum + build + partition-size guard",
+      "planSteps": ["4.C T07", "4.C T08", "4.C T09"],
+      "files": ["formats/imagewty.py"],
+      "dependsOn": [3],
+      "verify": "./.venv/bin/python -m pytest",
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "tests for imagewty parse/extract/vsum/build",
+      "planSteps": ["4.B T06", "4.C T10"],
+      "files": ["tests/test_imagewty.py"],
+      "dependsOn": [4],
+      "verify": "./.venv/bin/python -m pytest -m stock tests/test_imagewty.py",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "build.py --img, verify.py wrapper, end-to-end pipeline test",
+      "planSteps": ["4.C T11", "4.C T12", "4.C T13"],
+      "files": ["tools/build.py", "tools/verify.py", "tests/test_build.py"],
+      "dependsOn": [5],
+      "verify": "./.venv/bin/python -m pytest -m stock",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "docs/ — formats, hardware, findings, config keys, roadmap",
+      "planSteps": ["4.D T14"],
+      "files": ["docs/"],
+      "dependsOn": [6],
+      "verify": "./.venv/bin/python -m pytest",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "AGENTS.md + .claude/skills/ procedures",
+      "planSteps": ["4.D T15", "4.D T16"],
+      "files": ["AGENTS.md", ".claude/skills/"],
+      "dependsOn": [7],
+      "verify": "./.venv/bin/python -m pytest",
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "title": "README as index + Makefile",
+      "planSteps": ["4.D T17", "4.D T18"],
+      "files": ["README.md", "Makefile"],
+      "dependsOn": [8],
+      "verify": "make test",
+      "status": "pending"
+    }
+  ]
+}
