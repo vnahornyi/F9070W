@@ -10,11 +10,12 @@ identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
 — splitting into 29 section lines, 311 key/value lines and 63 blank lines;
 `configparser` agrees at 29 sections and 311 keys.
 
-`themes/config/Config.ini` is the working copy. It changes ten values, adds five
-keys and adds one section, which makes it 6079 bytes; `tests/test_config_ini.py`
-declares that list and fails if anything else moves. Two of the changes are
-confirmed on hardware (`backLightMode`, `startUpDefVolume`); everything else is an
-experiment. Nothing on this page comes from that copy — every value quoted below
+`themes/config/Config.ini` is the working copy. It changes eleven values, adds four keys
+and adds one section, which makes it 6067 bytes; `tests/test_config_ini.py`
+declares that list and fails if anything else moves. Five of the changes are
+confirmed on hardware (`backLightMode`, `startUpDefVolume`, `wallPaper`,
+`bLoudness`, and the fact that `[EUROPE]` is read at all); the rest are
+experiments. Nothing on this page comes from that copy — every value quoted below
 is the stock one unless it says otherwise.
 
 | Change | Why | Status |
@@ -24,18 +25,17 @@ is the stock one unless it says otherwise.
 | `carType` 22→19, `carModel=0` added | plain reverse guide lines instead of the parking-sensor scale | ⚠️ UNVERIFIED |
 | `colorLampMode` 0→6 | red button backlight | ⚠️ UNVERIFIED |
 | `bBackMute` 1→0, `bBackToMain` 0→1, `bBackToSource` 1→0, `bBackStopSource` 0→1 | reverse-gear behaviour the developer had before | ⚠️ UNVERIFIED |
-| `bAirPlayBackground=1` added to `[LINK]` | radio audio while CarPlay is on screen | ⚠️ UNVERIFIED |
-| `bLinkDot=0` added to `[LINK]` | hide the floating button drawn over CarPlay | ⚠️ UNVERIFIED |
+| `bRadioSoundAtCarPlay` 0→1 + `bAudioOutputAutoCtrl=0` added to `[AUDIO]` | radio audio while CarPlay is on screen, attempt 3 | ⚠️ UNVERIFIED |
 | `backLightNight` 40→50 | the value the developer's earlier config carried | ⚠️ UNVERIFIED |
-| `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | ⚠️ UNVERIFIED |
-| `bLoudness=1` added to `[AUDIO]` | Loudness on by default | ⚠️ UNVERIFIED |
+| `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | confirmed |
+| `bLoudness=1` added to `[AUDIO]` | Loudness on by default | confirmed |
 | `carplayVolGain` 88→100 | CarPlay is ~6 dB quieter than radio at the same setting | ⚠️ UNVERIFIED |
-| `[EUROPE]` section added | probe: is a section named after the zone read at all | ⚠️ UNVERIFIED |
+| `[EUROPE]` section added, `FM1` fields 2–7 | the six wanted presets; the section is read and field 2 is measured | partly confirmed |
 
-The experiments come from `docs/roadmap.md` items 2a/2b, from the `bLinkDot`
-finding, and from the earlier `Config.ini` diffed in `docs/findings.md`. None of
-them has been observed on the device; the table says so key by key rather than
-once at the top, because these are the rows most likely to be read in isolation.
+The experiments come from `docs/roadmap.md` items 2a/2b and from the earlier
+`Config.ini` diffed in `docs/findings.md`. The table carries the status key by key
+rather than once at the top, because these are the rows most likely to be read in
+isolation.
 
 Two categories are distinguished throughout:
 
@@ -170,12 +170,12 @@ idx  offset     slot  name
 
 The run is bracketed by `fmSoftMute` before it and `RadioSave.bin` after it.
 
-⚠️ UNVERIFIED that the position in this run is the value `radioArea` takes, i.e.
-that `radioArea=6` means EUROPE. What was measured is a run of strings, not an
-indexed array — no code was disassembled. The reading is supported by the two
-band-plan sections being named `[AMERICA2]` (position 3) and `[Brazil]`
-(position 7, case aside), and by nothing else. Settling it needs the reader
-disassembled out of `init.axf`, which is blocked on `docs/roadmap.md` item 1.
+**`radioArea=6` is EUROPE, confirmed on hardware.** With `radioArea` left at `6`,
+an added `[EUROPE]` section changed what the FM page shows (`docs/findings.md`).
+The unit therefore looks for the zone at position 6 of this run, which is the
+first behavioural evidence that the run is an indexed table and not merely a pile
+of strings. ⚠️ UNVERIFIED for every other position — one index was exercised, not
+eleven — and no code was disassembled.
 
 ### `[AMERICA2]` and `[Brazil]` (5 each) — per-zone band plans
 
@@ -186,25 +186,26 @@ FM1 = FM2 = FM3 = 7600,7600,9010,9810,10610,10800,7600,10,10
 AM1 = AM2 = 520,520,600,1000,1400,1620,520,10,10
 ```
 
-There is **no `[EUROPE]` section** in the stock file, and none was added to
-`themes/config/Config.ini` — see below.
+There is **no `[EUROPE]` section** in the stock file. `themes/config/Config.ini`
+adds one.
 
-⚠️ UNVERIFIED: **whether the parser looks for a section named after the current
-zone at all.** The name match `[AMERICA2]` ↔ `AMERICA2` and `[Brazil]` ↔ `BRAZIL`
-is suggestive, but no code was traced and no zone-named section has ever been
-added to a running device. The experiment is cheap and settles it in one power
-cycle: add an `[EUROPE]` section copied from `[AMERICA2]` with one field changed
-to a recognisable value, deliver only `Config.ini` through `update/`, and look at
-the FM page. It is written out as a procedure in `docs/roadmap.md`.
+**A section named after the active zone is read — confirmed on hardware.** An
+added `[EUROPE]` with one changed field moved the first preset cell on the FM
+page (`docs/findings.md`). The name match `[AMERICA2]` ↔ `AMERICA2` was only ever
+suggestive; the behaviour is now measured.
 
-⚠️ UNVERIFIED: **the meaning of the nine fields.** The working hypothesis is
-field 1 = band lower limit, fields 2–7 = six presets, fields 8–9 = tuning steps —
-appealing because the developer counts exactly six preset cells on the first FM
-page, and because both the FM and AM rows read the same way (values spread across
-the band, the last one back at the start). That is a hypothesis, not a
-measurement: no field has been changed and observed. Do not quote the six-preset
-reading as decoded. The experiment is one field at a time, one delivery each,
-in `docs/roadmap.md`.
+**Field 2 of the nine is the first preset — confirmed on hardware.** Setting it
+to `10260` put 102.6 in the first cell. Not a band floor, not a step.
+
+⚠️ UNVERIFIED: **the remaining eight fields.** The reading that fits is field 1 =
+band lower limit, fields 2–7 = the six preset cells, fields 8–9 = tuning steps —
+one of its nine parts is measured and the rest ride on it. The delivery that
+fills all six cells is what tests fields 3–7. Field 1 is left at the stock `7600`
+in the working copy, because nothing has measured it: the procedure step that
+would have was never reached.
+
+⚠️ UNVERIFIED: what `AM1`/`AM2` mean in the same layout. `[EUROPE]` carries them
+copied verbatim from `[AMERICA2]`, untouched.
 
 ⚠️ UNVERIFIED: how `saleArea` (`0`) and `radioArea` (`6`) select between the two
 sections, and what happens when neither names the active zone.

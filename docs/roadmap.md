@@ -64,8 +64,8 @@ A product requirement, not a format question: play FM while the CarPlay screen i
 up, and hand the audio back and forth — start a track in the CarPlay player and
 the radio goes quiet, stop it and the radio returns.
 
-**Nobody has run a single experiment for this.** Nothing below was tried on a
-device.
+**Two of the four cheap experiments are spent, both negative.** See the table
+below and `docs/findings.md`.
 
 **What is already known.** `bRadioSoundAtCarPlay=1` was set and the radio still
 did not play — see "Disproven on hardware" in `docs/findings.md`. The refusal
@@ -108,7 +108,7 @@ probability of success, and a real risk of an unrecoverable unit. That is an
 estimate, not a measurement, and it is the reason the work was deliberately not
 started. Coming back to it only makes sense once recovery is proven.
 
-### The cheap experiments — the gate is open, 1–4 not yet run
+### The cheap experiments — 0 and 2 done, 3 in flight, 4 left
 
 Configuration-only, each one delivered as a single `Config.ini` through `update/`
 and reverted the same way, so the risk is about as low as it gets on this device.
@@ -131,9 +131,9 @@ appeared on screen, or the source switched.
 | # | Change | Hypothesis under test |
 |---|---|---|
 | **0** | add `bMaxVolumeAsDefVolume=1` to `[STARTUP]` | **Done — positive.** The unit came up at 20 instead of 5, so a key absent from the stock file *is* read. That opens 2–4. It also exposed the re-read behaviour above. ⚠️ UNVERIFIED that the key means "use the maximum as the default" rather than something that merely happens to look like it. Reverted; not in `themes/config/Config.ini` |
-| 1 | `bRadioSoundAtCarPlay=1` | Control. Reproduce the known negative result, to confirm the setup measures what it claims to |
-| 2 | `bAirPlayBackground=1` in `[LINK]` | The most promising. Radio and media each have a background flag in the file (`bRadioBackgroundRun=1`, `bMediaBackgroundPlay=0`); CarPlay's equivalent exists only in `init.axf` |
-| 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | Whether automatic output control is what grabs the source |
+| 1 | `bRadioSoundAtCarPlay=1` | Control, folded into attempt 3. Reproduce the known negative result to confirm the setup measures what it claims to |
+| 2 | `bAirPlayBackground=1` in `[LINK]` | **Done — negative.** Radio stayed silent, and the source is taken **the moment the CarPlay screen is opened**, by button or by MODE, even with nothing playing. So it is not arbitration losing to an active stream: entering the screen alone claims the source. Reverted |
+| 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | **In the working copy, not yet observed.** Whether automatic output control is what grabs the source. Also re-runs attempt 1 as its control |
 | 4 | `bLinkVol=1` + `linkVol=0` | Silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source |
 
 Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
@@ -143,34 +143,31 @@ Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
 if keys that were not in the stock file were ignored, 2–4 would have been
 impossible by construction. They are not: one such key was read and acted on.
 
-Attempt 0 does **not** settle item 2b below. A key and a section are read by
-different code, and only the key case was observed. What it does is make the
-`[EUROPE]` attempt worth the power cycle.
+Attempt 0 did not settle item 2b below — a key and a section are read by
+different code — but item 2b has since been settled directly, and positively.
 
 **Stop after four.** This is a check of cheap hypotheses, not a blind search; a
 fifth attempt costs more than it can tell you.
 
 ---
 
-## 2b. FM presets for the EUROPE zone — **pending, needs hardware**
+## 2b. FM presets for the EUROPE zone — **step 1 done, step 3 in flight**
 
 Wanted on the first FM page: 102.6, 99.8, 90.9, 91.3, 90.5, 92.0. FM only — AM
 was explicitly not asked for.
 
-**Nothing has been done.** `themes/config/Config.ini` contains **no `[EUROPE]`
-section**, on purpose: writing one means asserting what the nine fields of a band
-plan mean, and no field has ever been changed and observed. See
-`docs/config-keys.md` for the two ⚠️ UNVERIFIED questions this rests on — whether
-a zone-named section is read at all, and what the nine fields are.
+**Step 1 came back positive.** An added `[EUROPE]` with field 2 of `FM1` set to
+`10260` put 102.6 in the first preset cell. So a section named after the active
+zone **is** read, and field 2 **is** the first preset. Step 2 was therefore never
+needed, which is why field 1 stays at the stock `7600`: nothing has measured it.
 
-The odds improved: item 2a's attempt 0 showed that a key the stock file never had
-is read and acted on, so the parser is not restricted to what it shipped with.
-That does not carry over to sections — different code — but it makes this worth
-the power cycles.
+`themes/config/Config.ini` now carries step 3 — all six cells — and that is what
+tests fields 3–7. See `docs/findings.md` and `docs/config-keys.md`.
 
-It cannot be done by reasoning. The procedure is a short series of cheap,
-revertible deliveries, each one `Config.ini` alone through `update/`, each
-costing a power cycle (budget ~20 minutes per round).
+The rest of the procedure is kept below as written, because if step 3 comes back
+wrong it is step 2 that says why. Each delivery is `Config.ini` alone through
+`update/`, cheap and revertible, and costs a power cycle (budget ~20 minutes per
+round).
 
 **Before every reading: Reset Factory, or read the result immediately after the
 config is applied.** An ordinary ACC cycle can show the stored settings rather
@@ -217,14 +214,22 @@ disproved, only not re-read.
    would be looked for, not where they have been found). That is an acceptable
    outcome, not a failure.
 
-Attempt 0 of item 2a has been run and came back positive, so there is no cheaper
-question left to ask first — start at step 1.
+Step 1 has been run and came back positive; the working copy is at step 3.
 
 ---
 
 ## 3. Decode the `DATAV1.0` layout section
 
 Needed to move or remove a control — for example the button drawn over CarPlay.
+
+That button now has a history. `init.axf` carries `bLinkDot` in the key-name
+table next to `ViewShowWndLinkDot`, `ViewShowButtonDot` and
+`ViewShowStrSwLinkDot`, which read as a window with a switch behind it — but
+`bLinkDot=0` was delivered and **the button is still there** (`docs/findings.md`).
+Keys absent from the stock file are read, so the file reached the parser; either
+`0` is not the value that hides it, or `bLinkDot` is not what draws it. ⚠️
+UNVERIFIED which. Until that is settled, the layout section below is the only
+other route.
 
 Entry point: `formats/datav1.py`. The header is understood up to `0x64` (magic,
 header size, layout size, screen width/height, window count, window name in

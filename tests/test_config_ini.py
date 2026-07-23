@@ -42,6 +42,7 @@ CHANGED = {
     ('CONFIG', 'bBackStopSource'): ('0', '1'),
     ('CAN', 'carType'): ('22', '19'),
     ('LINK', 'carplayVolGain'): ('88', '100'),
+    ('RADIO', 'bRadioSoundAtCarPlay'): ('0', '1'),
     ('STARTUP', 'startUpDefVolume'): ('10', '5'),
     ('BACKLIGHT', 'backLightMode'): ('0', '2'),
     ('BACKLIGHT', 'backLightNight'): ('40', '50'),
@@ -51,16 +52,15 @@ CHANGED = {
 ADDED = {
     ('SETUP', 'wallPaper'): '12.JPG',
     ('AUDIO', 'bLoudness'): '1',
+    ('AUDIO', 'bAudioOutputAutoCtrl'): '0',
     ('CAN', 'carModel'): '0',
-    ('LINK', 'bAirPlayBackground'): '1',
-    ('LINK', 'bLinkDot'): '0',
 }
 
 # A section the stock file does not contain, added as a copy of [AMERICA2]
 # with one FM1 field changed to a recognisable value.
 ADDED_SECTION = 'EUROPE'
 ADDED_SECTION_KEYS = {
-    'FM1': '7600,10260,9010,9810,10610,10800,7600,10,10',
+    'FM1': '7600,10260,9980,9090,9130,9050,9200,10,10',
     'FM2': '7600,7600,9010,9810,10610,10800,7600,10,10',
     'FM3': '7600,7600,9010,9810,10610,10800,7600,10,10',
     'AM1': '520,520,600,1000,1400,1620,520,10,10',
@@ -155,19 +155,23 @@ def test_the_working_copy_keeps_the_encoding_and_every_line_ending(working_ini):
     assert b'\t' not in working_ini
 
 
-def test_the_added_section_is_a_copy_of_america2_with_one_field_moved(
-        golden_ini, working_ini):
-    """Iteration 1 of the preset probe: one recognisable value, nothing else."""
+def test_the_added_section_carries_the_six_wanted_presets(golden_ini,
+                                                          working_ini):
+    """Fields 2..7 of FM1 are the six preset cells; 1, 8 and 9 stay stock.
+
+    Field 2 is measured - it moved the first cell on the device. The other five
+    ride on the same reading and are what this delivery tests.
+    """
     src = dict(parse(golden_ini)['AMERICA2'])
     added = dict(parse(working_ini)[ADDED_SECTION])
     assert set(added) == set(src)
-
     assert [k for k in src if added[k] != src[k]] == ['fm1']
 
     was, now = src['fm1'].split(','), added['fm1'].split(',')
     assert len(was) == len(now) == 9
-    assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1]
-    assert now[1] == '10260'
+    assert now[1:7] == ['10260', '9980', '9090', '9130', '9050', '9200']
+    assert [now[0], now[7], now[8]] == [was[0], was[7], was[8]]
+    assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1, 2, 3, 4, 5, 6]
 
 
 def test_no_source_gain_is_pushed_past_what_the_stock_file_attests(golden_ini,

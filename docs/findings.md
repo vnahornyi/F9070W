@@ -446,21 +446,79 @@ past it. If the gap only narrows slightly, the scale is linear and the next step
 is an explicit probe above 100, which is untested ground and belongs in its own
 delivery.
 
+### A section named after the zone IS read, and field 2 of `FM1` is the first preset
+
+The probe of `docs/roadmap.md` item 2b, step 1, run by the developer. A `[EUROPE]`
+section was added as a copy of `[AMERICA2]` with a single field of `FM1` changed
+to `10260`, and **the first preset cell on the FM page became 102.6**.
+
+Two things are settled by that one observation:
+
+* **The parser looks for a section named after the active zone.** With
+  `radioArea=6` the unit read `[EUROPE]`, a section the stock file does not
+  contain. The name match `[AMERICA2]` ↔ `AMERICA2` was only ever suggestive;
+  now it is measured.
+* **Field 2 of the nine is the first preset.** Not the band floor, not a step.
+
+That also settles, by implication, that `radioArea=6` selects EUROPE — the value
+`6` and the name `EUROPE` at position 6 of the `init.axf` run now agree with an
+observed behaviour rather than with each other alone.
+
+Still ⚠️ UNVERIFIED: fields 3–7 as presets 2–6, field 1 as the band floor, and
+fields 8–9 as tuning steps. The whole reading hangs together and one of its nine
+parts is measured; the delivery that sets all six cells is what tests the rest.
+Field 1 was deliberately left at the stock `7600` — nothing has measured it, and
+step 2 of the procedure, which would have, was never needed.
+
+### Confirmed and disproved by the same delivery
+
+Four more results from the same round. Reported by the developer from the
+device.
+
+**Confirmed:**
+
+* **`wallPaper=12.JPG`** — the wallpaper changed. So the key is read, and it
+  takes a bare file name, not a path.
+* **`bLoudness=1`** — Loudness comes up on.
+
+Both were code-only keys, which makes them the second and third independent
+confirmations that keys absent from the stock file are honoured.
+
+**Disproved:**
+
+* **`bAirPlayBackground=1` does not give radio audio under CarPlay.** This was
+  B1 attempt 2 and the most promising of the four. The behaviour is worth
+  recording precisely: the source switches the moment CarPlay is opened, whether
+  by the on-screen button or by the MODE key, **even when nothing is playing in
+  CarPlay**. So it is not audio arbitration losing to an active stream — opening
+  the screen alone takes the source. That fits the guard in `init.axf` refusing
+  by priority, and it narrows what a future patch would have to change: the
+  handover happens at screen entry, not at first audio.
+* **`bLinkDot=0` does not hide the floating button over CarPlay.** The key is
+  read from the file — that much is established by the two confirmations above —
+  so either `0` is not the value that hides it, or `bLinkDot` is not what draws
+  it. The button remains, and with it the layout route (`docs/roadmap.md` item 3)
+  as the only other idea. ⚠️ UNVERIFIED which of the two.
+
+Both disproved keys were taken back out of `themes/config/Config.ini`. A key with
+no observed effect left in a config is noise that the next reader has to
+re-disprove.
+
 ### Still open: the experiments nobody has run
 
-* **Whether a section named after the active zone is read**, i.e. whether an
-  added `[EUROPE]` is seen at all. ⚠️ UNVERIFIED. No `[EUROPE]` section was added
-  to `themes/config/Config.ini`, deliberately — adding one and writing down what
-  its nine fields mean without having watched a screen is precisely the guess
-  rule 1 forbids. The key half of this question is now answered above; the
-  section half is not.
-* **The nine fields of `FM1`/`AM1`.** ⚠️ UNVERIFIED, and specifically *not*
-  decoded. There is a hypothesis (field 1 = band floor, 2–7 = six presets,
-  8–9 = steps) and it is written down as a hypothesis in `docs/config-keys.md`.
-* **Radio audio while CarPlay is connected.** No new experiment was run. The
-  known negative result stands unchanged — see "Disproven on hardware" above for
-  `bRadioSoundAtCarPlay=1` and the `init.axf` guard behind it. The requirement is
-  now carried as a blocked item in `docs/roadmap.md`.
+* **Fields 3–7 of `FM1` as presets 2–6, field 1 as the band floor, 8–9 as
+  steps.** ⚠️ UNVERIFIED. Field 2 is measured; the rest of the reading is what
+  the next delivery tests.
+* **Radio audio while CarPlay is connected.** Two of the four cheap combinations
+  are now spent — `bRadioSoundAtCarPlay=1` long ago, `bAirPlayBackground=1`
+  above — both negative, and the second showed the source is taken at screen
+  entry rather than at first audio. Attempts 3 and 4 remain, in
+  `docs/roadmap.md`.
+* **What hides the floating button over CarPlay.** `bLinkDot=0` did not.
+* **The EQ preset default**, and the scale `*VolGain` is on. Both above.
+* **Whether `carType=19` restores the plain reverse guide lines, and whether
+  `colorLampMode=6` gives a red backlight.** Both shipped in the same delivery as
+  the results above and neither was looked at yet.
 
 ---
 
