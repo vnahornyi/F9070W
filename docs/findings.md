@@ -417,20 +417,34 @@ gain, and every one of them is in the stock `Config.ini`:
 Each has a slider view and a label in `init.axf` — `ViewShowSliderRadioVolGain`,
 `ViewShowSliderCarplayVolGain`, `ViewShowSliderMediaVolGain`,
 `ViewShowSliderBtVolGain`, `…IpodVolGain`, `…AuxVolGain`, `…ArmVolGain`,
-`…GpsVolGain`, `…DvdVolGain`, `…BtmVolGain`, `…LinkVolGain` — so they are meant
-to be trimmed from a settings screen, not only from the file. ⚠️ UNVERIFIED which
-screen and whether it needs `factoryPaswword`.
+`…GpsVolGain`, `…DvdVolGain`, `…BtmVolGain`, `…LinkVolGain`.
+
+**The sliders are not reachable.** The developer looked for them and they are not
+in any menu on this unit. A view existing in the binary is not a view the user
+can get to — the screen may belong to a build variant, or sit behind an entry
+point nobody has found. So the file is the only handle, and "there is a slider
+for it" is not an answer to "how do I change it".
 
 Worth noting: **radio and CarPlay already carry the same 88** and are still
-reported as unequal by ear. So the imbalance is in the CarPlay path rather than
-in these numbers, and matching them is a calibration, not an arithmetic
-correction.
+unequal by ear. So the imbalance is in the CarPlay path rather than in these
+numbers, and matching them is a calibration, not an arithmetic correction.
 
-⚠️ UNVERIFIED what scale the value is on. `mediaVolGain=100` is the highest in
-the file and `gpsVolGain=80` the lowest, which is consistent with 0–100 but does
-not establish it, nor whether values above 100 are accepted or clip. Raising a
-source is the move that risks distortion; lowering the louder source instead
-costs only maximum loudness and cannot clip.
+**How far apart, measured by ear:** volume 10 on radio matches volume 15 on
+CarPlay. The file gives `maxVolume=33` and `minVolDB=-39`, so if the steps are
+uniform each is about 1.2 dB and the gap is roughly **6 dB**.
+
+⚠️ UNVERIFIED what scale `*VolGain` is on, and that is what decides whether this
+is fixable at all from here. If it is a linear percentage, moving CarPlay from 88
+to 100 buys about **+1.1 dB** — a sixth of the gap. If it is closer to a dB trim,
+12 units would overshoot. `mediaVolGain=100` is the highest value the vendor
+ships and `gpsVolGain=80` the lowest; nothing establishes whether values above
+100 are accepted, clamped, or clip.
+
+The working copy therefore goes to `carplayVolGain=100` — the ceiling the vendor
+itself attests — and `tests/test_config_ini.py` refuses to push any source gain
+past it. If the gap only narrows slightly, the scale is linear and the next step
+is an explicit probe above 100, which is untested ground and belongs in its own
+delivery.
 
 ### Still open: the experiments nobody has run
 

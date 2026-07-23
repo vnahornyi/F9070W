@@ -10,8 +10,8 @@ identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
 — splitting into 29 section lines, 311 key/value lines and 63 blank lines;
 `configparser` agrees at 29 sections and 311 keys.
 
-`themes/config/Config.ini` is the working copy. It changes nine values, adds five
-keys and adds one section, which makes it 6078 bytes; `tests/test_config_ini.py`
+`themes/config/Config.ini` is the working copy. It changes ten values, adds five
+keys and adds one section, which makes it 6079 bytes; `tests/test_config_ini.py`
 declares that list and fails if anything else moves. Two of the changes are
 confirmed on hardware (`backLightMode`, `startUpDefVolume`); everything else is an
 experiment. Nothing on this page comes from that copy — every value quoted below
@@ -29,6 +29,7 @@ is the stock one unless it says otherwise.
 | `backLightNight` 40→50 | the value the developer's earlier config carried | ⚠️ UNVERIFIED |
 | `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | ⚠️ UNVERIFIED |
 | `bLoudness=1` added to `[AUDIO]` | Loudness on by default | ⚠️ UNVERIFIED |
+| `carplayVolGain` 88→100 | CarPlay is ~6 dB quieter than radio at the same setting | ⚠️ UNVERIFIED |
 | `[EUROPE]` section added | probe: is a section named after the zone read at all | ⚠️ UNVERIFIED |
 
 The experiments come from `docs/roadmap.md` items 2a/2b, from the `bLinkDot`

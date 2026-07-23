@@ -41,6 +41,7 @@ CHANGED = {
     ('CONFIG', 'bBackToSource'): ('1', '0'),
     ('CONFIG', 'bBackStopSource'): ('0', '1'),
     ('CAN', 'carType'): ('22', '19'),
+    ('LINK', 'carplayVolGain'): ('88', '100'),
     ('STARTUP', 'startUpDefVolume'): ('10', '5'),
     ('BACKLIGHT', 'backLightMode'): ('0', '2'),
     ('BACKLIGHT', 'backLightNight'): ('40', '50'),
@@ -167,6 +168,18 @@ def test_the_added_section_is_a_copy_of_america2_with_one_field_moved(
     assert len(was) == len(now) == 9
     assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1]
     assert now[1] == '10260'
+
+
+def test_no_source_gain_is_pushed_past_what_the_stock_file_attests(golden_ini,
+                                                                   working_ini):
+    """100 is the highest *VolGain the vendor ships. Above it is unattested."""
+    stock, now = flatten(golden_ini), flatten(working_ini)
+    gains = [k for k in stock if k[1].endswith('volgain')]
+    assert len(gains) == 10
+    ceiling = max(int(stock[k]) for k in gains)
+    assert ceiling == 100
+    for k in gains:
+        assert int(now[k]) <= ceiling, f'{k} is above anything the vendor ships'
 
 
 @pytest.mark.stock
