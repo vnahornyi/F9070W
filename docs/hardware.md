@@ -1,18 +1,25 @@
 # Hardware
 
-> # ⛔ DO NOT FLASH THIS DEVICE
+> # ⚠️ FLASHING WORKS. RECOVERY STILL DOES NOT.
 >
-> **The recovery path has not been verified on hardware.** Plan §12 records it as
-> an open question, and it is still open. Until someone has actually restored a
-> bricked unit — not read about it, not inferred it from the files below —
-> flashing anything, stock or modified, risks a permanent brick with no way back.
+> **Flashing a full image built by this toolchain is proven.** A rebuilt
+> `LTTF133.img` — differing from stock only in two JPEG files — was flashed from a
+> USB `update/` folder and the device came back up with no regressions. So the
+> flasher accepts `imagewty.build()` output, the recomputed V-sums are sufficient,
+> and the pipeline is sound end to end.
 >
-> The gate is QA case 5 in the plan: flash the **unmodified** stock image via
-> PhoenixSuit *and* via SD, and confirm the device boots both ways. Nothing else
-> touches hardware until that passes.
+> **What is still unproven is getting back from a *bad* image.** No unbootable
+> unit has ever been restored. The recovery button restores the last *flashed*
+> settings, and the USB updater lives inside `data_udisk.fex` — the partition a
+> theme rewrites. If the app stops booting, both are gone.
 >
-> This page describes the recovery *machinery that exists in the image*. That is
-> not the same as a recovery procedure that is known to work.
+> So the rule is not "never flash". It is: **only flash an image this toolchain
+> has verified**, and verify it before every flash — see
+> `.claude/skills/verify-roundtrip/SKILL.md` and the audit below. An image that
+> differs from stock anywhere you did not intend is not to be flashed.
+>
+> Still open: QA case 5 — restoring a unit via PhoenixSuit/USB or SD. Until that
+> is done, a bad flash is a one-way door.
 
 ## SoC
 
@@ -152,11 +159,13 @@ Established by what the developer has actually done, cheapest first:
 
 1. a single cosmetic file (boot logo) via `update/` — done, works;
 2. `Config.ini` via `update/` — done, works, and revertible the same way;
-3. a full `LTTF133.img` — **never done.** This is the step the gate at the top of
-   this page is about.
+3. a full `LTTF133.img` via `update/` — **done, works.** A toolchain-built image
+   was flashed and the unit booted with no regressions. See `docs/findings.md`.
 
-A themed image only needs step 1 or 2 if the change is a loose file. Rebuilding
-`data_udisk.fex` whole to change one sprite is step 3.
+All three rungs are proven. What is *not* proven is the rung below zero:
+recovering a unit that no longer boots. That is why step 3 must always be
+preceded by the differential audit — the audit is what stands in for a recovery
+path that does not exist yet.
 
 ## Passwords
 

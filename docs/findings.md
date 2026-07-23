@@ -68,12 +68,53 @@ This matters more than it looks: **the recovery button is not a safety net.**
 A bad image cannot be undone with it, because it would restore the bad image's
 own settings. Nothing in `docs/hardware.md`'s recovery section is replaced by it.
 
+### A toolchain-built full image flashes and boots
+
+The headline result of the project. A `LTTF133.img` produced by
+`imagewty.build()` was flashed from a USB `update/` folder; the device came back
+up with no regressions.
+
+The image differed from stock only in `/res/stalogo1.jpg` and
+`/apps/Logo/stalogo1.jpg` (a replaced 800x480 JPEG), plus the recomputed
+`Vdata_udisk.fex`. It was audited before flashing, and the audit is the reason
+this was a reasonable thing to do:
+
+```
+відмінних діапазонів: 367, всього 87276 B
+  data_udisk.fex     366 ranges, 87272 B
+  Vdata_udisk.fex      1 range,      4 B
+header 0x00..0x400 identical, item table identical, other 23 partitions identical
+files 257 -> 257, none moved, only the two JPEGs changed
+sprites 1128 -> 1128, 0 changed
+69 compressed files: 0 changed, init.axf byte-identical
+free tail 2663808 -> 2663808, V-sum recomputed and correct
+```
+
+What this establishes:
+
+- the flasher **accepts `imagewty.build()` output** — the two-region padding, the
+  recomputed `offset`/`stored_len`/`length`/`image_size`, and the V-sum algorithm
+  are all sufficient, not merely self-consistent;
+- `vsum` is the **only** checksum that matters for `data_udisk.fex`. Had there
+  been another integrity field anywhere in the header, table or partition, this
+  image would have been rejected;
+- the whole chain — `minfs.replace` → `imagewty.build` → flash → boot — is real.
+
+What it does **not** establish: that a *bad* image can be undone, that sprite
+edits specifically are safe (this image changed no sprite — see below), or that
+the unit survives repeated cold starts (plan §8 case 8 is still unrun).
+
+The one remaining difference between this and a sprite theme is
+`datav1.rebuild()`, which is covered by round-trip tests over all 1128 stock
+sprites and by the byte-identical whole-image test.
+
 ### The device updates itself from a USB stick
 
 An `update/` folder on a USB stick is picked up on its own and the unit reboots
-by itself. It accepts **individual files** — `Config.ini`, the boot logo — not
-only a full image. This gives a graduated risk ladder: a single cosmetic file is
-a far smaller step than rewriting `data_udisk.fex` whole.
+by itself. Both granularities are confirmed: **individual files** (`Config.ini`,
+the boot logo) and a **full `LTTF133.img`**. That gives a graduated risk ladder —
+a single cosmetic file is a far smaller step than rewriting `data_udisk.fex`
+whole — but all three rungs now work.
 
 ⚠️ **UNVERIFIED: whether this survives a broken image.** The updater with the
 progress UI lives in `/apps/init.axf` — the very partition a theme rewrites —
