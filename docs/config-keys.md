@@ -10,8 +10,8 @@ identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
 — splitting into 29 section lines, 311 key/value lines and 63 blank lines;
 `configparser` agrees at 29 sections and 311 keys.
 
-`themes/config/Config.ini` is the working copy. It changes nine values, adds five keys
-and adds one section, which makes it 6060 bytes; `tests/test_config_ini.py`
+`themes/config/Config.ini` is the working copy. It changes eight values, adds three keys
+and adds one section, which makes it 6042 bytes; `tests/test_config_ini.py`
 declares that list and fails if anything else moves. Six of the changes are
 confirmed on hardware (`backLightMode`, `startUpDefVolume`, `wallPaper`,
 `bLoudness`, `colorLampMode` and the six `[EUROPE]` presets); the rest are
@@ -25,8 +25,7 @@ is the stock one unless it says otherwise.
 | `carType` 22→19, `carModel=0` added | plain reverse guide lines instead of the parking-sensor scale | ⚠️ UNVERIFIED |
 | `colorLampMode` 0→6 | red button backlight | confirmed |
 | `bBackMute` 1→0 | no muting when reverse is engaged | ⚠️ UNVERIFIED |
-| `bRadioSoundAtCarPlay` 0→1 + `bLinkVol=1`, `linkVol=0` added to `[LINK]` | radio audio while CarPlay is on screen, attempt 4 — the last cheap one | ⚠️ UNVERIFIED |
-| `defaultSource` `Radio`→empty | the radio starts itself at every boot and has no stop control | ⚠️ UNVERIFIED |
+| `bRadioBackgroundRun` 1→0 | the radio starts itself at every boot and has no stop control; `defaultSource` was already disproved as the cause | ⚠️ UNVERIFIED |
 | `backLightNight` 40→50 | the value the developer's earlier config carried | ⚠️ UNVERIFIED |
 | `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | confirmed |
 | `bLoudness=1` added to `[AUDIO]` | Loudness on by default | confirmed |

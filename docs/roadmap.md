@@ -65,7 +65,14 @@ up, and hand the audio back and forth — start a track in the CarPlay player an
 the radio goes quiet, stop it and the radio returns.
 
 **Three of the four cheap experiments are spent, all negative.** The fourth is
-in the working copy. See the table below and `docs/findings.md`.
+held back for now.
+
+⚠️ **This requirement conflicts with another one the developer wants.** The radio
+starts itself at every boot and cannot be stopped, and the current lead on that
+is `bRadioBackgroundRun=0` — which asks the radio not to play when it is not the
+foreground screen. Radio-under-CarPlay asks for exactly the opposite. If that
+lead proves right, the two cannot both be had from the config, and the choice is
+the developer's. See `docs/findings.md`.
 
 **What is already known.** `bRadioSoundAtCarPlay=1` was set and the radio still
 did not play — see "Disproven on hardware" in `docs/findings.md`. The refusal
@@ -134,7 +141,7 @@ appeared on screen, or the source switched.
 | 1 | `bRadioSoundAtCarPlay=1` | Control, folded into attempt 3. Reproduce the known negative result to confirm the setup measures what it claims to |
 | 2 | `bAirPlayBackground=1` in `[LINK]` | **Done — negative.** Radio stayed silent, and the source is taken **the moment the CarPlay screen is opened**, by button or by MODE, even with nothing playing. So it is not arbitration losing to an active stream: entering the screen alone claims the source. Reverted |
 | 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | **Done — negative.** Radio still stops the moment CarPlay is entered. Reverted |
-| 4 | `bLinkVol=1` + `linkVol=0` | **In the working copy, not yet observed.** The last cheap one. Silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source. If this fails too, the config route is exhausted and the item is genuinely blocked on the chain above |
+| 4 | `bLinkVol=1` + `linkVol=0` | **Held back, not yet run.** The last cheap one: silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source. It needs the radio alive in the background, so it cannot ride in the same delivery as `bRadioBackgroundRun=0` — see the conflict noted below. Run it once the self-starting radio is settled |
 
 Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
 `bAudioOutputAutoCtrl`, `bLinkVol` and `linkVol` all appear as strings in

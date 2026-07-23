@@ -529,55 +529,77 @@ to the stock 88, and the other CarPlay volume key — `carplayVolume`, `10` in
 stock against `btVolume=18` for Bluetooth — is tried instead. One lever at a
 time; `15` is chosen because five steps is exactly the measured gap.
 
-### `bBackToMain` / `bBackToSource` / `bBackStopSource` are reverse-gear keys
+### `bBackToMain` / `bBackToSource` / `bBackStopSource` are the on-screen BACK button
 
-Worth writing down because the names invite exactly one wrong reading. These
-three are not about the back **button**; the `Back` in them is the reverse gear,
-the same `Back` as in `bBackMute`, `bBackOff`, `bBackLine`, `backDetectGpio`,
-`backChannelV` and `Back.data`. The key-name table places them in that company:
+**Correcting an earlier claim in this file.** These were written up here as
+reverse-gear keys, on the strength of the company they keep in `init.axf`'s
+key-name table:
 
 ```
-… colorLampMode · colorLampTime · wheelType · dateFormat · backDump ·
-fixWheelType · frontCameraTime · wallPaper · bArmBeep ·
-bBackToMain · bBackToSource · bBackStopSource · bCapacitiveScreen …
+… dateFormat · backDump · fixWheelType · frontCameraTime · wallPaper ·
+bArmBeep · bBackToMain · bBackToSource · bBackStopSource · bCapacitiveScreen …
 ```
 
-So they say what the unit does when reverse is **disengaged** — return to the
-main screen, return to the previous source, or leave the source stopped.
-⚠️ UNVERIFIED in the sense that no code was traced, but the developer's own use
-fits: `bBackStopSource=1` was being used as a way to stop the radio, by engaging
-reverse.
+`backDump` and `frontCameraTime` on one side, `bBackMute`, `bBackOff`,
+`bBackLine` elsewhere in the file — the reading was that `Back` meant reverse
+gear throughout. **It does not.** The developer uses the device: these three
+govern the **touch BACK button in the UI, next to HOME**. `bBackStopSource=1`
+makes that button stop the current source, which is how they had been silencing
+the radio.
 
-The back button always landing on the main screen is therefore not something
-these keys govern, and no key in the table obviously does. The hardware buttons
-are mapped by code in `[MAINKEY]`, `[SCREENKEY]`, `[PANELKEY1/2]` and `[IRKEY]`,
-so changing what a button does means knowing the key-code table — which is not
-decoded. ⚠️ UNVERIFIED whether "return to previous source" exists as a code at
-all.
+The mistake is worth keeping visible because of how it was made. Adjacency in a
+string table is a hint about which *section* a key belongs to; it says nothing
+about what the key *means*. Two keys can sit next to each other and belong to
+different subsystems, and `Back` is exactly the kind of prefix that carries two
+meanings in one binary — reverse gear in `bBackMute`, the UI button here.
+`AGENTS.md` rule 2 covers this: an inference is not a measurement, and the person
+with the device outranks the person with the hex dump.
 
-### The radio starts itself because the config tells it to
+What is still ⚠️ UNVERIFIED is why BACK lands on the main screen regardless.
+Stock is `bBackToMain=0`, `bBackToSource=1`, which reads as "go back to the
+previous source" — and it does not. The developer has tried `1 / 0 / 1` and the
+stock `0 / 1 / 0`; both put BACK on the main screen. So either the pair means
+something narrower than it sounds, or returning to CarPlay specifically is
+excluded. Untried: `0 / 0` and `1 / 1`.
 
-`defaultSource=Radio` in `[CONFIG]`, and there is no stop control on the radio
-screen — so the radio comes up at every start and cannot be turned off, only
-switched away from. That is the root cause of the workaround above.
+### The radio starts itself, and `defaultSource` is not why
 
-`defaultSource` and `defaultInterface` sit together in the key-name table, and
-the stock file leaves `defaultInterface` empty. So **empty is an attested value
-for this pair**, as it is for `startUpVideoPath=` and `audioI2cName=`. The
-working copy empties `defaultSource` rather than naming another source, because
-naming one means guessing a token.
+The radio comes up at every start and the radio screen has no stop control, so it
+can only be switched away from. `defaultSource=Radio` in `[CONFIG]` is the
+obvious suspect and **it is not the cause**: the developer had already emptied it
+on this device and the unit still came up on Radio. `defaultSource` is back at
+the stock `Radio` in the working copy — an emptied key that changes nothing is
+noise.
 
-The tokens are not a mystery, for the record: `init.axf` carries a run of source
-names at `0x1a8029` — `Radio · Dab · Aux · Aux2 · AndroidAuto · CarPlayWireless ·
+The next candidate, and the developer's own, is **`bRadioBackgroundRun=1`** in
+`[RADIO]`: a radio that is allowed to run in the background may simply never stop
+running. The working copy sets it to `0`. ⚠️ UNVERIFIED.
+
+If that is not it either, the remaining lead is `sourceSave` — code-only, and
+sitting in the `[CONFIG]` run between `bNewWheelKey` and `brakeDetectGpio`. A
+saved last-source restored at power-on would explain a Radio that ignores
+`defaultSource` entirely. ⚠️ UNVERIFIED, and untried.
+
+**These two wishes are in direct conflict**, which is worth stating before either
+is chased further. `bRadioBackgroundRun=0` asks the radio *not* to keep playing
+when it is not the foreground screen. Radio audio under CarPlay asks it to do
+exactly that. If `bRadioBackgroundRun=0` turns out to be what stops the
+self-starting radio, then radio-under-CarPlay is unreachable while it is off, and
+the two have to be traded against each other rather than both delivered. B1
+attempt 4 is therefore held back rather than shipped alongside it — see
+`docs/roadmap.md`.
+
+For the record, the tokens exist: `init.axf` carries a run of source names at
+`0x1a8029` — `Radio · Dab · Aux · Aux2 · AndroidAuto · CarPlayWireless ·
 AutoWireless · AirPlay · AndroidWireless · EclinkWireless · PaceWireless ·
 Miracast · YouTube` — and a separate run of screen names at `0x1a93e0` including
-`Main`. ⚠️ UNVERIFIED that either run is what these two keys are matched against.
+`Main`. ⚠️ UNVERIFIED that either run is what `defaultSource` and
+`defaultInterface` are matched against.
 
-⚠️ **`defaultInterface` was deliberately left alone.** It is the one key in this
+⚠️ **`defaultInterface` is deliberately left alone.** It is the one key in this
 area where a wrong value could plausibly stop the unit reaching a usable screen,
 and the `update/` recovery route runs inside the app it would break — see "The
-device updates itself from a USB stick" above. An empty `defaultSource` cannot do
-that; a made-up screen name might.
+device updates itself from a USB stick" above.
 
 ### Still open: the experiments nobody has run
 
