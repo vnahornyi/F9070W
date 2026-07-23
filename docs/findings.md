@@ -214,20 +214,57 @@ what makes the volume hold. The reading was taken after a start, not after
 deliberately setting a different volume, powering down and starting again. Nor
 was the backlight watched after dark — only the daylight case was seen.
 
+### The parser reads keys the stock file never had — and the file is not read at every start
+
+The meta-test, run by the developer. `bMaxVolumeAsDefVolume=1` — a key that
+exists as a string in `init.axf` and **nowhere in the stock `Config.ini`** — was
+added to `[STARTUP]` and delivered through `update/`. Observed, in order:
+
+| Event | Volume at start |
+|---|---|
+| straight after the config was applied | **20** |
+| after an ordinary ACC power cycle | **5** |
+| after Reset Factory | **20** |
+
+Two independent things fall out of that.
+
+**1. A key absent from the stock file is read and acted on.** This was the gate
+on everything else in this area, and it is now open: code-only keys are not
+decorative. `bAirPlayBackground`, `bAudioOutputAutoCtrl`, `bLinkVol` and the rest
+of the `init.axf`-only inventory in `docs/config-keys.md` are worth trying, and a
+`[EUROPE]` section is worth trying. ⚠️ UNVERIFIED that a *section* the stock file
+lacks is read — a key and a section are read by different code, and only the key
+case was observed.
+
+**2. `Config.ini` is not consulted on every start.** The same file produced 20,
+then 5, then 20 again without changing. The reading that fits: the file is
+consumed into persistent settings when it is applied and again on Reset Factory,
+and an ordinary start reads those stored settings, not the file. That is
+consistent with what the recovery button already does — see "The recovery button
+is not a rollback" above, which found it restores the last *flashed* state.
+⚠️ UNVERIFIED as a mechanism; no store was located and no code was read.
+
+**This changes how every later experiment must be run.** An ACC cycle alone can
+show a stored value and hand you a false negative — the experiment looks like it
+failed when the file was simply never re-read. Read the result immediately after
+applying the config, or force a Reset Factory, before writing anything down. Any
+future negative result obtained by ACC cycle alone is not a result.
+
+⚠️ UNVERIFIED that the `20` is `startUpMaxVolume=20` being used as the default
+rather than an absolute ceiling that happens to be 20. Changing `startUpMaxVolume`
+to something else and repeating would separate them.
+
 ### Still open: the experiments nobody has run
 
-* **Whether the parser reads a section named after the active zone**, i.e.
-  whether an added `[EUROPE]` is seen at all. ⚠️ UNVERIFIED. No `[EUROPE]`
-  section was added to `themes/config/Config.ini`, deliberately — adding one and
-  writing down what its nine fields mean without having watched a screen is
-  precisely the guess rule 1 forbids.
+* **Whether a section named after the active zone is read**, i.e. whether an
+  added `[EUROPE]` is seen at all. ⚠️ UNVERIFIED. No `[EUROPE]` section was added
+  to `themes/config/Config.ini`, deliberately — adding one and writing down what
+  its nine fields mean without having watched a screen is precisely the guess
+  rule 1 forbids. The key half of this question is now answered above; the
+  section half is not.
 * **The nine fields of `FM1`/`AM1`.** ⚠️ UNVERIFIED, and specifically *not*
   decoded. There is a hypothesis (field 1 = band floor, 2–7 = six presets,
   8–9 = steps) and it is written down as a hypothesis in `docs/config-keys.md`.
-* **Whether the parser reads a key that was absent from the stock file.**
-  ⚠️ UNVERIFIED, and it is the cheapest question in the whole area because one
-  meta-test answers it for both the `[EUROPE]` section and every code-only key.
-  The procedure is in `docs/roadmap.md`.
 * **Radio audio while CarPlay is connected.** No new experiment was run. The
   known negative result stands unchanged — see "Disproven on hardware" above for
   `bRadioSoundAtCarPlay=1` and the `init.axf` guard behind it. The requirement is

@@ -108,13 +108,20 @@ probability of success, and a real risk of an unrecoverable unit. That is an
 estimate, not a measurement, and it is the reason the work was deliberately not
 started. Coming back to it only makes sense once recovery is proven.
 
-### The cheap experiments, none of them run
+### The cheap experiments — the gate is open, 1–4 not yet run
 
 Configuration-only, each one delivered as a single `Config.ini` through `update/`
 and reverted the same way, so the risk is about as low as it gets on this device.
 Expectations are low too — the guard is in the code and we know it — but a
 negative result here has its own value: it narrows the search for the patching
 route, exactly as the `bRadioSoundAtCarPlay` result already did.
+
+**Read the result the right way or do not write it down.** Attempt 0 established
+that `Config.ini` is not consulted at every start: the same file gave a different
+start-up volume after an ACC cycle than it did right after being applied and
+after a Reset Factory (`docs/findings.md`). So observe immediately after the
+config is applied, or force a Reset Factory first. A negative result taken after
+an ACC cycle alone means nothing — the file may simply never have been re-read.
 
 Change one thing at a time. After each: connect CarPlay, start a video, switch
 the radio on, and write down **what actually happened** — not "did not work", but
@@ -123,7 +130,7 @@ appeared on screen, or the source switched.
 
 | # | Change | Hypothesis under test |
 |---|---|---|
-| **0** | add `bMaxVolumeAsDefVolume=1` to `[STARTUP]` | **Meta-test, run this first.** Does the parser read a key the stock file does not contain? Picked because a start-up volume is visible at a glance: if the key is read, the unit should come up at maximum instead of at `startUpDefVolume`. ⚠️ UNVERIFIED that the key means that — the reading comes from its name, nothing more; what matters is only whether *something* changes. **Revert it straight away.** |
+| **0** | add `bMaxVolumeAsDefVolume=1` to `[STARTUP]` | **Done — positive.** The unit came up at 20 instead of 5, so a key absent from the stock file *is* read. That opens 2–4. It also exposed the re-read behaviour above. ⚠️ UNVERIFIED that the key means "use the maximum as the default" rather than something that merely happens to look like it. Reverted; not in `themes/config/Config.ini` |
 | 1 | `bRadioSoundAtCarPlay=1` | Control. Reproduce the known negative result, to confirm the setup measures what it claims to |
 | 2 | `bAirPlayBackground=1` in `[LINK]` | The most promising. Radio and media each have a background flag in the file (`bRadioBackgroundRun=1`, `bMediaBackgroundPlay=0`); CarPlay's equivalent exists only in `init.axf` |
 | 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | Whether automatic output control is what grabs the source |
@@ -132,12 +139,13 @@ appeared on screen, or the source switched.
 Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
 `bAudioOutputAutoCtrl`, `bLinkVol` and `linkVol` all appear as strings in
 `init.axf` and **none of them is a key in `Config.ini`** (the file's only
-`linkVol`-like key is `linkVolGain`). That is what makes attempt 0 the gate:
-if the parser ignores keys that were not in the stock file, attempts 2–4 are
-impossible by construction and there is nothing to try.
+`linkVol`-like key is `linkVolGain`). Attempt 0 was the gate on the other four —
+if keys that were not in the stock file were ignored, 2–4 would have been
+impossible by construction. They are not: one such key was read and acted on.
 
-Attempt 0 also answers the `[EUROPE]` question in item 2b below — it is the same
-unknown wearing two hats.
+Attempt 0 does **not** settle item 2b below. A key and a section are read by
+different code, and only the key case was observed. What it does is make the
+`[EUROPE]` attempt worth the power cycle.
 
 **Stop after four.** This is a check of cheap hypotheses, not a blind search; a
 fifth attempt costs more than it can tell you.
@@ -155,9 +163,20 @@ plan mean, and no field has ever been changed and observed. See
 `docs/config-keys.md` for the two ⚠️ UNVERIFIED questions this rests on — whether
 a zone-named section is read at all, and what the nine fields are.
 
+The odds improved: item 2a's attempt 0 showed that a key the stock file never had
+is read and acted on, so the parser is not restricted to what it shipped with.
+That does not carry over to sections — different code — but it makes this worth
+the power cycles.
+
 It cannot be done by reasoning. The procedure is a short series of cheap,
 revertible deliveries, each one `Config.ini` alone through `update/`, each
-costing a power cycle (budget ~20 minutes per round):
+costing a power cycle (budget ~20 minutes per round).
+
+**Before every reading: Reset Factory, or read the result immediately after the
+config is applied.** An ordinary ACC cycle can show the stored settings rather
+than the file — that is how attempt 0 gave 20, then 5, then 20 from one
+unchanged file. A preset that "did not appear" after an ACC cycle has not been
+disproved, only not re-read.
 
 1. **Is the section read?** Add `[EUROPE]` as a copy of `[AMERICA2]`, changing
    only field 2 of `FM1` to `10260` — 102.6 MHz is a real station, so the result
@@ -198,8 +217,8 @@ costing a power cycle (budget ~20 minutes per round):
    would be looked for, not where they have been found). That is an acceptable
    outcome, not a failure.
 
-Run attempt 0 of item 2a before any of this. A negative answer there predicts
-step 1 fails and saves the round trip.
+Attempt 0 of item 2a has been run and came back positive, so there is no cheaper
+question left to ask first — start at step 1.
 
 ---
 

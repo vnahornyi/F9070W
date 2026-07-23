@@ -99,6 +99,17 @@ read after a start, not after deliberately setting a different one, powering the
 unit down and starting it again (QA case 6). The two keys have not been
 separated.
 
+`bMaxVolumeAsDefVolume` is **not** in the stock file; it exists only as a string
+in `init.axf`. Setting it to `1` here made the unit start at 20 instead of 5,
+which is how the meta-test in `docs/findings.md` proved that keys absent from the
+stock file are read at all. It is not in `themes/config/Config.ini` — it was a
+probe, and it was reverted. ⚠️ UNVERIFIED that the `20` is `startUpMaxVolume`
+being used as the default rather than a ceiling that happens to equal it.
+
+⚠️ Do not read a start-up volume after an ordinary ACC cycle and treat it as this
+section's answer: the same file gave 20, then 5, then 20 depending on how the
+unit came up. `docs/findings.md` explains what that costs an experiment.
+
 ### `[RADIO]` (24)
 
 `bArmRadio=1` · `radioChannelA=0` · `radioVolGain=88` · `radioMaxDac=799072` ·
@@ -328,9 +339,16 @@ The three password defaults sit in this run as value/name pairs
 `panelKeyPassword`'s default is `260127`. `bUseUi1Config` is also referenced by a
 log format string: `CSystemSetup_SetUiID %d,save %d,bUseUi1Config %d`.
 
-⚠️ UNVERIFIED: that adding any of these to `Config.ini` has any effect. The
-inference "string in the key-name run ⇒ readable config key" is well supported by
-the run's ordering but is not proof, and none of these has been set on hardware.
+**One of them has now been set on hardware and it worked.**
+`bMaxVolumeAsDefVolume=1`, added to `[STARTUP]`, changed the start-up volume —
+see `docs/findings.md`. So a key that the stock file never contained is read and
+acted on, and the inference "string in the key-name run ⇒ readable config key"
+has one confirming case instead of none.
+
+⚠️ UNVERIFIED that it generalises to the rest of the run, and ⚠️ UNVERIFIED what
+any individual key here does — one key being read says nothing about what the
+other 331 mean. Treat the list as candidates worth an experiment, not as
+documented settings.
 
 ## Checksum
 
