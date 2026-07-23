@@ -10,6 +10,12 @@ lowercased, plus two snapshots derived from them:
     sprites.json  w/h/depth/stride/raw_len/header of every sprite of every screen
     png.sha256    SHA-256 of each sprite exported through tools/unpack.py
 
+Config.ini is the seventh golden file: the whole stock /apps/Config.ini, the
+device's main configuration, stored uncompressed in the MINFS rootfs. It is
+copied from stock/rootfs/apps/, the same unpacked tree the screens come from
+rather than sliced out of the partition; the two are byte-identical because
+minfs marks the file uncompressed, so the cheaper path is the honest one.
+
 They exist so a clone without the ~40 MB stock/ tree still runs the test suite.
 Never regenerate silently: a changed snapshot is either a real regression or a
 finding that belongs in docs/findings.md.
@@ -38,7 +44,8 @@ from formats import datav1  # noqa: E402
 from tools import unpack  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(__file__), '..')
-DATA = os.path.join(ROOT, 'stock', 'rootfs', 'apps', 'Data')
+APPS = os.path.join(ROOT, 'stock', 'rootfs', 'apps')
+DATA = os.path.join(APPS, 'Data')
 FIXTURES = os.path.join(ROOT, 'tests', 'fixtures')
 
 
@@ -58,6 +65,9 @@ GOLDEN = [
     Golden('setupversion.data', 8118, 2),
     Golden('setuplogo.data', 8128, 5),
 ]
+
+CONFIG = 'Config.ini'
+CONFIG_SIZE = 5761
 
 
 def source_of(name: str) -> str:
@@ -98,6 +108,11 @@ def generate() -> dict[str, bytes]:
         ]
         for sp in items:
             digests.append(f'{png_sha256(sp)}  {g.name}/{sp.idx:02}.png')
+
+    blob = open(os.path.join(APPS, CONFIG), 'rb').read()
+    if len(blob) != CONFIG_SIZE:
+        print(f'!! {CONFIG}: {len(blob)} bytes, expected {CONFIG_SIZE}')
+    out[CONFIG] = blob
 
     out['sprites.json'] = (json.dumps(snapshot, indent=2) + '\n').encode()
     out['png.sha256'] = ('\n'.join(digests) + '\n').encode()
