@@ -1,14 +1,21 @@
-"""Pins /apps/Config.ini and the working copy that changes two of its keys.
+"""Pins /apps/Config.ini and the working copy that changes it.
 
 Config.ini is the device's main configuration file - audio, backlight, radio,
 CAN, steering wheel - so the only safe edit is a byte-level one: AGENTS.md rule
 4 forbids "normalising" anything, and a round trip through configparser would
-rewrite key order, comments and line endings without anyone noticing. These
-tests therefore compare bytes, not parsed values, and use configparser only to
-read.
+rewrite key order, comments and line endings without anyone noticing.
 
     tests/fixtures/Config.ini   golden copy of the stock file, always available
-    themes/config/Config.ini    the working copy, exactly two lines changed
+    themes/config/Config.ini    the working copy
+
+The point of these tests is not that the working copy is *correct* - only the
+device can say that - but that it differs from stock in exactly the changes
+declared below and in nothing else. CHANGED, ADDED and ADDED_SECTION are the
+whole contract; anything else moving is a bug in whatever produced the file.
+
+Two of the declared changes are confirmed on hardware (backLightMode,
+startUpDefVolume). The rest are experiments, and docs/findings.md says which is
+which. The tests do not distinguish - a wrong byte is a wrong byte either way.
 
 Only the case that reads the file out of the stock MINFS partition carries
 @pytest.mark.stock; everything else runs on a fresh clone.
@@ -25,10 +32,35 @@ TARGET = '/apps/Config.ini'
 ROOTFS_PARTITION = 'data_udisk.fex'
 
 SECTION_COUNT = 29
-CRLF_COUNT = 402
 
-CHANGES = {'startUpDefVolume=10': 'startUpDefVolume=5',
-           'backLightMode=0': 'backLightMode=2'}
+# (section, key): (stock value, working-copy value)
+CHANGED = {
+    ('SETUP', 'bBackMute'): ('1', '0'),
+    ('SETUP', 'colorLampMode'): ('0', '6'),
+    ('CONFIG', 'bBackToMain'): ('0', '1'),
+    ('CONFIG', 'bBackToSource'): ('1', '0'),
+    ('CONFIG', 'bBackStopSource'): ('0', '1'),
+    ('CAN', 'carType'): ('22', '19'),
+    ('STARTUP', 'startUpDefVolume'): ('10', '5'),
+    ('BACKLIGHT', 'backLightMode'): ('0', '2'),
+}
+
+# (section, key): value - keys the stock file does not contain at all
+ADDED = {
+    ('CAN', 'carModel'): '0',
+    ('LINK', 'bAirPlayBackground'): '1',
+}
+
+# A section the stock file does not contain, added as a copy of [AMERICA2]
+# with one FM1 field changed to a recognisable value.
+ADDED_SECTION = 'EUROPE'
+ADDED_SECTION_KEYS = {
+    'FM1': '7600,10260,9010,9810,10610,10800,7600,10,10',
+    'FM2': '7600,7600,9010,9810,10610,10800,7600,10,10',
+    'FM3': '7600,7600,9010,9810,10610,10800,7600,10,10',
+    'AM1': '520,520,600,1000,1400,1620,520,10,10',
+    'AM2': '520,520,600,1000,1400,1620,520,10,10',
+}
 
 
 @pytest.fixture(scope='module')
@@ -45,6 +77,17 @@ def parse(blob: bytes) -> configparser.ConfigParser:
     cp = configparser.ConfigParser()
     cp.read_string(blob.decode('ascii'))
     return cp
+
+
+def flatten(blob: bytes) -> dict[tuple[str, str], str]:
+    """Every value keyed (section, key). configparser lowercases key names."""
+    cp = parse(blob)
+    return {(s, k): v for s in cp.sections() for k, v in cp[s].items()}
+
+
+def declared(mapping: dict) -> dict:
+    """The declarations above, in the case configparser reports."""
+    return {(s, k.lower()): v for (s, k), v in mapping.items()}
 
 
 @pytest.mark.stock
@@ -66,35 +109,60 @@ def test_the_keys_this_task_reads_are_present(golden_ini):
     assert cp['RADIO']['radioArea'] == '6'
 
 
-def test_each_changed_key_occurs_exactly_once_as_a_whole_line(golden_ini):
-    lines = golden_ini.split(b'\r\n')
-    for old in CHANGES:
-        assert lines.count(old.encode('ascii')) == 1
+def test_every_declared_change_starts_from_the_value_it_claims(golden_ini):
+    """A stale 'from' value would silently turn a change into a no-op."""
+    stock = flatten(golden_ini)
+    for key, (was, _) in declared(CHANGED).items():
+        assert stock[key] == was, key
+    for key in declared(ADDED):
+        assert key not in stock, key
+    assert ADDED_SECTION not in parse(golden_ini).sections()
 
 
-def test_the_working_copy_changes_exactly_the_two_declared_lines(golden_ini,
-                                                                working_ini):
-    was, now = golden_ini.split(b'\r\n'), working_ini.split(b'\r\n')
-    assert len(now) == len(was)
+def test_the_working_copy_changes_exactly_the_declared_keys(golden_ini,
+                                                           working_ini):
+    stock, now = flatten(golden_ini), flatten(working_ini)
 
-    moved = {(a.decode('ascii'), b.decode('ascii'))
-             for a, b in zip(was, now) if a != b}
-    assert moved == set(CHANGES.items())
+    moved = {k: (stock[k], now[k]) for k in stock if now.get(k) != stock[k]}
+    assert moved == declared(CHANGED)
+
+    added = {k: v for k, v in now.items() if k not in stock}
+    assert added == {**declared(ADDED),
+                     **declared({(ADDED_SECTION, k): v
+                                 for k, v in ADDED_SECTION_KEYS.items()})}
+
+    assert [k for k in stock if k not in now] == [], 'a key was removed'
+
+
+def test_the_working_copy_adds_one_section_and_removes_none(golden_ini,
+                                                            working_ini):
+    was, now = parse(golden_ini).sections(), parse(working_ini).sections()
+    assert set(now) - set(was) == {ADDED_SECTION}
+    assert set(was) - set(now) == set()
+    cut = was.index('DVD')
+    assert now[:cut] == was[:cut], 'the existing sections were reordered'
 
 
 def test_the_working_copy_keeps_the_encoding_and_every_line_ending(working_ini):
     assert working_ini.decode('ascii')
-    assert working_ini.count(b'\r\n') == CRLF_COUNT
     assert working_ini.count(b'\n') == working_ini.count(b'\r\n')
     assert working_ini.count(b'\r') == working_ini.count(b'\r\n')
+    assert b'\t' not in working_ini
 
 
-def test_the_working_copy_changes_no_section_and_adds_no_key(golden_ini,
-                                                            working_ini):
-    was, now = parse(golden_ini), parse(working_ini)
-    assert now.sections() == was.sections()
-    for section in was.sections():
-        assert list(now[section]) == list(was[section])
+def test_the_added_section_is_a_copy_of_america2_with_one_field_moved(
+        golden_ini, working_ini):
+    """Iteration 1 of the preset probe: one recognisable value, nothing else."""
+    src = dict(parse(golden_ini)['AMERICA2'])
+    added = dict(parse(working_ini)[ADDED_SECTION])
+    assert set(added) == set(src)
+
+    assert [k for k in src if added[k] != src[k]] == ['fm1']
+
+    was, now = src['fm1'].split(','), added['fm1'].split(',')
+    assert len(was) == len(now) == 9
+    assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1]
+    assert now[1] == '10260'
 
 
 def test_the_new_default_volume_stays_inside_the_files_own_limits(working_ini):

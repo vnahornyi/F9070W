@@ -254,6 +254,68 @@ future negative result obtained by ACC cycle alone is not a result.
 rather than an absolute ceiling that happens to be 20. Changing `startUpMaxVolume`
 to something else and repeating would separate them.
 
+### An earlier `Config.ini` from the same device, diffed against stock
+
+The developer kept the `Config.ini` that was on the unit before the current
+firmware. It is not derived from this stock file — it comes from another build —
+but it ran on this hardware, which makes it evidence rather than a suggestion.
+Diffed key by key against `tests/fixtures/Config.ini`:
+
+```
+size 5465 B vs 5761;  CRLF 0, bare LF 409;  one stray tab;  pure ASCII
+sections 29 vs 29, same order;  keys 318 vs 311
+```
+
+**It has no CRLF at all and it worked.** The stock file is pure CRLF and this
+repository's working copy keeps that, but the parser evidently accepts bare LF.
+Worth knowing before anyone treats a line-ending change as the cause of a
+failure.
+
+**Eight keys that the stock file does not contain**, accepted the same way:
+`videoOutputFormat` · `avddVoltage` · `backDump` (in `[SETUP]`), `lvdsBits`
+(`[CONFIG]`), `carModel` (`[CAN]`), `startUpMaxTalkVolume` (`[STARTUP]`),
+`btMicGain` · `btHeadsetMicGain` (`[BT]`). That is an independent confirmation of
+the meta-test above, from a file nobody wrote for the purpose.
+
+Eleven values differ:
+
+| Key | stock | earlier file |
+|---|---|---|
+| `[SETUP] bBackMute` | 1 | 0 |
+| `[SETUP] colorLampMode` | 0 | **6** |
+| `[CONFIG] bBackToMain` / `bBackToSource` / `bBackStopSource` | 0 / 1 / 0 | 1 / 0 / 1 |
+| `[CAN] carType` | 22 | **19** |
+| `[RADIO] bRadioSoundAtCarPlay` | 0 | **1** |
+| `[LINK] micGain` | 70 | 65 |
+| `[LINK] wifiChannel` | 36 | 161 |
+| `[BACKLIGHT] backLightMode` | 0 | **2** |
+| `[BACKLIGHT] backLightNight` | 40 | 50 |
+
+Three of those are worth more than the rest:
+
+* **`carType=19`.** With the earlier file the reverse-camera screen drew plain
+  guide lines; on stock it draws the parking-sensor scale. The firmware has two
+  screens for this — `Back.data` (7 sprites) and `Back2.data` (66, of which 64
+  are identical 22×108 bars, the same bars `CarRadar.data` is built from). ⚠️
+  UNVERIFIED that `carType` is what selects between them; it is the strongest
+  candidate in the diff and the developer has no parking sensors and no CAN bus.
+* **`colorLampMode=6`.** The developer reports the button backlight was red under
+  that file. Reported from their own use of the device, not measured here.
+  `init.axf` also carries `bColorLamp`, `colorLampModeNum`, `colorLampTime` and
+  `colorLampGpioR/G/B`, none of them in `Config.ini`, so the lamp is an RGB
+  device driven per-mode. ⚠️ UNVERIFIED that `6` means red rather than a cycle
+  that happens to sit on red.
+* **`bRadioSoundAtCarPlay=1` was already set in that file.** So the negative
+  result recorded under "Disproven on hardware" came from this exact
+  configuration. Worth re-running as the control experiment now that we know an
+  ACC cycle may not re-read the file at all.
+
+⛔ **Do not deliver that file as-is**, and this repository does not. It carries
+`avddVoltage=50` and `lvdsBits=8` — panel supply voltage and LVDS bit depth for a
+different build. Wrong display electrical parameters are the one change in this
+whole area that a config reflash does not undo. Individual keys are cherry-picked
+onto the stock-derived working copy instead.
+
 ### Still open: the experiments nobody has run
 
 * **Whether a section named after the active zone is read**, i.e. whether an
