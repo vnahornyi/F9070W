@@ -240,9 +240,16 @@ explicit rather than accidental.
 
 ## 5. `Config.ini` checksum
 
-⚠️ UNVERIFIED whether the file is checksummed at all, and by what algorithm. Until
-it is settled, a hand-edited `Config.ini` may be rejected or may break boot, so
-nothing in this toolchain writes it.
+Largely answered by accident: a hand-edited `Config.ini` — two values changed and
+one byte shorter than stock — was delivered through `update/` and **applied**,
+both keys taking effect (`docs/findings.md`). So either there is no checksum, or
+nothing checks it on this path.
+
+⚠️ UNVERIFIED that this generalises. One file, edited in place, staying the same
+length to within a byte, proves nothing about a file that grows, gains a section
+or reorders keys. And the `update/` route is not the only reader. Until the
+config reader is disassembled the safe reading is: small in-place value edits are
+demonstrably tolerated, everything else is untested.
 
 Entry points: `docs/config-keys.md` for the full key inventory (311 keys present,
 36 more that exist only as defaults in `init.axf`), and the config reader inside

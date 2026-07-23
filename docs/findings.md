@@ -126,7 +126,7 @@ cable and does not depend on the app — but it has never been exercised.
 
 ---
 
-## `Config.ini`: measured, patched, not delivered
+## `Config.ini`: measured, patched, delivered
 
 ### The file itself
 
@@ -194,16 +194,28 @@ This is the same shape of audit that preceded the flash recorded above under
 "Confirmed on hardware", one layer narrower: that image changed two JPEGs, this
 one changes one text file.
 
-### Still open: the whole hardware half
+### The two-key change, confirmed on hardware
 
-Nothing in this work was delivered to the device and nothing was flashed. What
-that leaves unanswered:
+`themes/config/Config.ini` — the whole file, not an image — was delivered
+through `update/` by the developer and applied. Both keys do what they were
+changed for:
 
-* **`startUpDefVolume=5`.** ⚠️ UNVERIFIED. `backLightMode=2` is confirmed —
-  by the developer, from direct observation, and it is the *only* hardware fact
-  in this entry. The volume key rides along in the same file and has been
-  observed by nobody. What would settle it: `Config.ini` alone through `update/`,
-  a complete power cut, then read the volume at start.
+* **`startUpDefVolume=5`** — the unit comes up at volume 5.
+* **`backLightMode=2`** — switching the parking lights on no longer forces the
+  night theme, and the daylight brightness is unaffected.
+
+That is a report from direct observation on the device, not a measurement made
+in this repository. It also confirms the delivery route end to end for a file
+this toolchain produced: a text file, alone, through `update/`, revertible by
+putting `tests/fixtures/Config.ini` back the same way.
+
+Not separated by this observation: ⚠️ UNVERIFIED whether `startUpResume=0` is
+what makes the volume hold. The reading was taken after a start, not after
+deliberately setting a different volume, powering down and starting again. Nor
+was the backlight watched after dark — only the daylight case was seen.
+
+### Still open: the experiments nobody has run
+
 * **Whether the parser reads a section named after the active zone**, i.e.
   whether an added `[EUROPE]` is seen at all. ⚠️ UNVERIFIED. No `[EUROPE]`
   section was added to `themes/config/Config.ini`, deliberately — adding one and
