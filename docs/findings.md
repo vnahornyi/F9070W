@@ -26,8 +26,9 @@ Priority is low,TopApp:%s,uiID:%d[%d<%d]
 Priority is important,SourceApp:%s,uiID:%d[%d<%d]
 ```
 
-(The first is at byte 1 741 017 of `stock/rootfs/apps/init.axf`; the rest come
-out of `strings -a`.)
+(The first is at byte 1 741 016 of the *corrected* `init.axf`; the rest come out
+of `strings -a`. Every offset into `init.axf` in this file has been shifted — see
+"Where the 30 extra bytes are" below.)
 
 So the audio-source arbitration refuses the request by priority before the config
 flag is ever consulted. Making this work means patching `init.axf`, which means
@@ -148,7 +149,7 @@ Every one of those agrees with what the plan claimed, which is worth saying only
 because the rule is to re-run it rather than repeat it.
 
 `init.axf` carries eleven zone names in a contiguous run of 8-byte NUL-terminated
-slots at `0x1f3569`, `CHINA … KOREA`, listed slot by slot in
+slots at `0x1f3568`, `CHINA … KOREA`, listed slot by slot in
 `docs/config-keys.md`. When this was written it was ⚠️ UNVERIFIED that a name's
 position in that run is the value `radioArea` takes — a run of strings is not an
 indexed array. Position 6 has since been exercised on the device and holds; see
@@ -324,10 +325,10 @@ Removing a control was assumed to need the undecoded `DATAV1.0` layout section
 carries, as separate strings, a config key and the view that reads it:
 
 ```
-0x1ce469  bLinkDot            (key-name table; NOT a key in Config.ini)
-0x1a89e1  ViewShowWndLinkDot
-0x1a8c71  ViewShowButtonDot
-0x1b9951  ViewShowStrSwLinkDot
+0x1ce468  bLinkDot            (key-name table; NOT a key in Config.ini)
+0x1a89e0  ViewShowWndLinkDot
+0x1a8c70  ViewShowButtonDot
+0x1b9950  ViewShowStrSwLinkDot
 ```
 
 So it is a window the firmware shows or hides, and there is a settable flag
@@ -590,9 +591,9 @@ attempt 4 is therefore held back rather than shipped alongside it — see
 `docs/roadmap.md`.
 
 For the record, the tokens exist: `init.axf` carries a run of source names at
-`0x1a8029` — `Radio · Dab · Aux · Aux2 · AndroidAuto · CarPlayWireless ·
+`0x1a8028` — `Radio · Dab · Aux · Aux2 · AndroidAuto · CarPlayWireless ·
 AutoWireless · AirPlay · AndroidWireless · EclinkWireless · PaceWireless ·
-Miracast · YouTube` — and a separate run of screen names at `0x1a93e0` including
+Miracast · YouTube` — and a separate run of screen names at `0x1a93df` including
 `Main`. ⚠️ UNVERIFIED that either run is what `defaultSource` and
 `defaultInterface` are matched against.
 
@@ -600,6 +601,60 @@ Miracast · YouTube` — and a separate run of screen names at `0x1a93e0` includ
 area where a wrong value could plausibly stop the unit reaching a usable screen,
 and the `update/` recovery route runs inside the app it would break — see "The
 device updates itself from a USB stick" above.
+
+### Where the 30 extra bytes are — the chunk table, read
+
+`melislzma.decompress` produces 2 501 594 bytes for `/apps/init.axf` against a
+declared 2 501 564, and `tools/unpack.py` writes the first 2 501 564 of them. The
+overshoot was known. **Where** it sits was not, and it decides whether every
+offset ever quoted into that file is right.
+
+The MINFS directory entry answers it. Entry 14916 holds, after the padded name,
+records carrying the true decompressed length of each chunk:
+
+```
+chunk 0   compressed at 0 .. 904944      decompresses to 1 646 244
+chunk 1   compressed at 904944 ..        decompresses to   564 028
+chunk 2   compressed at 1075560 ..       decompresses to   290 776
+```
+
+Against what the decompressor actually emits:
+
+```
+chunk 0   ours 1 646 245   table 1 646 244   overshoot   +1
+chunk 1   ours   564 034   table   564 028   overshoot   +6
+chunk 2   ours   291 315   table   290 776   overshoot +539
+```
+
+So the extra bytes are at the **end of each chunk**, not at the end of the file,
+and they accumulate. Everything past 1 646 244 in the unpacked file is shifted
+**+1**; everything past 2 210 272 is shifted **+7**.
+
+Three independent checks confirm it. `bLinkDot`, `EUROPE` and `wallPaper` all sit
+at offsets with `mod 8 == 1` in the unpacked file, and land exactly on 8-byte
+boundaries once chunk 0 is truncated to its table length. Those name tables are
+8-byte aligned throughout; three unrelated strings correcting to alignment
+together is not a coincidence.
+
+**Every `init.axf` offset in `docs/` has been decremented by 1 accordingly.** All
+of them fell in chunk 1's range, so all took the same correction. Nothing quoted
+so far lies past 2 210 272.
+
+This is roadmap item 1, step 2, done — the chunk table is decoded far enough to
+give exact per-chunk output lengths. ⚠️ UNVERIFIED: the exact record layout. The
+three lengths above are unmistakable because they match the decompressor to
+within its known overshoot, but the surrounding columns in each 32-byte record
+have not been pinned, and the three lengths sum to 2 501 048 rather than the
+declared 2 501 564 — 516 bytes unaccounted for, which is a loose end, not a
+result. Making `decompress()` exact is a `formats/` change and needs its own
+round-trip test in the same commit (rule 3); it is not done here.
+
+**Why this matters beyond tidiness.** Reading the code — actually disassembling
+RISC-V rather than inferring meaning from key names — needs a binary whose
+addresses are real. At +1 drift a disassembler resynchronises and produces
+plausible, wrong output. So item 1 is not merely a nicety before item 2: it is
+the prerequisite for any claim about `init.axf` that is measured rather than
+guessed.
 
 ### Still open: the experiments nobody has run
 
@@ -845,7 +900,7 @@ Re-measured for this document; the plan was right about these.
 | SoC is Allwinner F133/D1s, RISC-V | `u-boot_nor.fex` strings: `U-Boot 2018.07 ... Allwinner Technology`, `Bad Linux RISCV Image magic!`, `allwinner,riscv`, `allwinner,sun20iw1p1-pinctrl` |
 | 25 partitions, 1024-byte alignment | `imagewty.parse` on the stock image; every offset ≡ 0 mod 1024 |
 | No checksum in the header or item table | `build(img, {})` is byte-identical without computing any CRC |
-| V-sum = sum of LE u32 words mod 2^32 | `Vdata_udisk = 0x1e3c76a1`, `Vmelis_pkg_nor = 0x814cb3db`, both match |
+| V-sum = sum of LE u32 words mod 2^32 | `Vdata_udisk = 0x1e3c75a1`, `Vmelis_pkg_nor = 0x814cb3db`, both match |
 | `data_udisk.fex` at offset `0x378000` | 3 637 248 = `0x378000`, and it is the second-to-last item |
 | ROOTFS size fixed at 28544 sectors / 14272 KB | `sys_partition_nor.fex` and `rootfs_ini.tmp`, both = 14 614 528 B |
 | MINFS: 257 files, 188 uncompressed | `minfs.files()`: 257 total, 188 raw, 69 compressed |

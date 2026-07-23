@@ -28,6 +28,12 @@ Steps:
    test suite drops from minutes to seconds as a side effect.
 2. Parse the 32-byte records that follow the padded name. Their count is
    `(entry_size - 20 - align4(namelen)) / 32`; measured values are 5, 6 and 10.
+   **Partly done.** For `/apps/init.axf` those records give the true decompressed
+   length of each chunk — 1 646 244, 564 028, 290 776 — which pins the overshoot
+   to +1, +6 and +539 at the *end of each chunk* rather than at the end of the
+   file. See "Where the 30 extra bytes are" in `docs/findings.md`. What remains is
+   the rest of the record layout, and the 516 bytes by which those three lengths
+   fall short of the declared total.
 3. Drive `decompress()` from the table's offsets instead of the signature scan.
    Success criteria, both already pinned as the *current* behaviour in
    `tests/test_melislzma.py`: `/apps/init.axf` comes out at exactly 2 501 564
@@ -81,9 +87,9 @@ priority, before the config flag is consulted at all**. The strings, re-located
 in `stock/rootfs/apps/init.axf` for this page:
 
 ```
-0x1a90d9  无效，CarPlay连接中
-0x1db471  Priority is low,SourceApp:%s,uiID:%d[%d<%d]
-0x1db4d1  Priority is important,SourceApp:%s,uiID:%d[%d<%d]
+0x1a90d8  无效，CarPlay连接中
+0x1db470  Priority is low,SourceApp:%s,uiID:%d[%d<%d]
+0x1db4d0  Priority is important,SourceApp:%s,uiID:%d[%d<%d]
 ```
 
 That is where a disassembler would start. So the flag is not the lever. The
@@ -115,7 +121,7 @@ probability of success, and a real risk of an unrecoverable unit. That is an
 estimate, not a measurement, and it is the reason the work was deliberately not
 started. Coming back to it only makes sense once recovery is proven.
 
-### The cheap experiments — 0, 2 and 3 done, 4 in flight
+### The cheap experiments — 0, 2 and 3 done, 4 held back
 
 Configuration-only, each one delivered as a single `Config.ini` through `update/`
 and reverted the same way, so the risk is about as low as it gets on this device.

@@ -148,24 +148,24 @@ unit came up. `docs/findings.md` explains what that costs an experiment.
 #### `radioArea=6` and the zone names in `init.axf`
 
 `init.axf` carries a contiguous run of eleven NUL-terminated zone names in
-8-byte slots, starting at offset `0x1f3569` of `stock/rootfs/apps/init.axf`
+8-byte slots, starting at offset `0x1f3568` of `stock/rootfs/apps/init.axf`
 (2 501 564 B on disk). Each name occurs exactly once in the binary except
 `EUROPE`, whose second occurrence is the tail of `EASTEUROPE`. Measured slot by
 slot:
 
 ```
 idx  offset     slot  name
-  0  0x1f3569     8  CHINA
-  1  0x1f3571    16  AMERICA1
-  2  0x1f3581     8  JAPAN
-  3  0x1f3589    16  AMERICA2
-  4  0x1f3599     8  RUSSIA
-  5  0x1f35a1     8  MIDEAST
-  6  0x1f35a9     8  EUROPE
-  7  0x1f35b1     8  BRAZIL
-  8  0x1f35b9    16  AUSTRALIA
-  9  0x1f35c9    16  EASTEUROPE
- 10  0x1f35d9     8  KOREA
+  0  0x1f3568     8  CHINA
+  1  0x1f3570    16  AMERICA1
+  2  0x1f3580     8  JAPAN
+  3  0x1f3588    16  AMERICA2
+  4  0x1f3598     8  RUSSIA
+  5  0x1f35a0     8  MIDEAST
+  6  0x1f35a8     8  EUROPE
+  7  0x1f35b0     8  BRAZIL
+  8  0x1f35b8    16  AUSTRALIA
+  9  0x1f35c8    16  EASTEUROPE
+ 10  0x1f35d8     8  KOREA
 ```
 
 The run is bracketed by `fmSoftMute` before it and `RadioSave.bin` after it.
