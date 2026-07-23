@@ -114,16 +114,49 @@ of the two identically-named `boot_pkg_uboot_nor.fex` items. That is the concret
 reason `imagewty.build()` refuses to resolve that name by guessing — a wrong
 guess there breaks exactly this recovery route.
 
-### On-device update — a lead, not a route
+### On-device update from USB — the one route that has actually been used
 
-`init.axf` carries the default strings `LTTF133.img` / `appUpdateFile` and
-`LTTMcu.bin` / `mcuUpdateFile`, and `Config.ini` sets `logoCardName=F:`. This
-suggests the running firmware can update itself from a card, but neither the
-trigger nor the required file placement has been established.
+This is the only mechanism here that anybody has run. Reported by the developer
+from direct use: an `update/` folder on a USB stick is picked up on its own, the
+unit flashes and reboots by itself. It accepts **individual files** — `Config.ini`,
+the boot logo — not only a full image.
 
-⚠️ UNVERIFIED: everything in this section. No route above has been executed. In
-particular it is unknown whether an F9070W in FEL mode is reachable at all
-without opening the case.
+`init.axf` carries the matching defaults `LTTF133.img` / `appUpdateFile`,
+`LTTMcu.bin` / `mcuUpdateFile`, and `Config.ini` sets `logoCardName=F:`. The
+progress UI is in the same binary: `SetupUpdate`, `SetupOtaUpdate`,
+`ViewShowSliderUpdateProgress`, `ViewShowStrUpdateProgress`, `UpdateMcu.bin`.
+
+**And that is exactly the problem.** This updater lives inside `/apps/init.axf`,
+which lives inside `data_udisk.fex` — the partition a theme rewrites. If a bad
+image stops the app from booting, this updater is gone with it. It is a
+convenient update path, not a recovery path.
+
+The recovery button does not cover that gap either: it restores settings to the
+**last flashed** state, not to a factory baseline, so it would restore the bad
+image's own settings. See `docs/findings.md`.
+
+The u-boot-level path (`usb update probe`, `usb_update_probe_ok`,
+`usb_update_efex`, `pburn`, `SUNXI_UPDATE_NEXT_ACTION_REBOOT` in
+`u-boot_nor.fex`) is USB-**gadget** flashing over a cable — the PhoenixSuit/FEL
+side, not a USB stick — and it runs before the app, so it would survive a broken
+app. It has never been exercised.
+
+⚠️ UNVERIFIED: whether the USB-stick updater can repair a unit whose app no
+longer boots; whether an F9070W in FEL mode is reachable at all without opening
+the case; and what the `update/` folder must contain for a **full image** as
+opposed to a single file.
+
+### Risk ladder
+
+Established by what the developer has actually done, cheapest first:
+
+1. a single cosmetic file (boot logo) via `update/` — done, works;
+2. `Config.ini` via `update/` — done, works, and revertible the same way;
+3. a full `LTTF133.img` — **never done.** This is the step the gate at the top of
+   this page is about.
+
+A themed image only needs step 1 or 2 if the change is a loose file. Rebuilding
+`data_udisk.fex` whole to change one sprite is step 3.
 
 ## Passwords
 

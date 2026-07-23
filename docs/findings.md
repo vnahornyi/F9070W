@@ -36,6 +36,55 @@ re-litigate this by flipping the config again.
 
 ---
 
+## Confirmed on hardware
+
+Reported by the developer from direct observation on the device. Observation on
+real hardware outranks anything read out of the binary — but it establishes only
+what was actually seen, and the limits are recorded with each entry.
+
+### `stalogo1.jpg` is the boot logo
+
+Seen on screen during startup. Two byte-identical copies exist:
+
+```
+/res/stalogo1.jpg            44133 B  uncompressed  800x480 RGB JPEG
+/apps/Logo/stalogo1.jpg      44133 B  uncompressed  same sha256
+```
+
+⚠️ **UNVERIFIED which copy is read.** The two are byte-identical, so seeing the
+image on screen cannot distinguish them. Replace **both**. Settling it means
+writing two *different* images and seeing which one appears.
+
+It is a plain JPEG in the MINFS tree, not a DATAV1.0 sprite, so `tools/build.py`
+does not touch it — patch it with `minfs.replace` directly.
+
+### The recovery button is not a rollback
+
+The button restores settings to the last state that was **flashed**, not to a
+factory state baked into the SoC. Flash a modified `Config.ini` from USB and the
+button afterwards restores *that* config.
+
+This matters more than it looks: **the recovery button is not a safety net.**
+A bad image cannot be undone with it, because it would restore the bad image's
+own settings. Nothing in `docs/hardware.md`'s recovery section is replaced by it.
+
+### The device updates itself from a USB stick
+
+An `update/` folder on a USB stick is picked up on its own and the unit reboots
+by itself. It accepts **individual files** — `Config.ini`, the boot logo — not
+only a full image. This gives a graduated risk ladder: a single cosmetic file is
+a far smaller step than rewriting `data_udisk.fex` whole.
+
+⚠️ **UNVERIFIED: whether this survives a broken image.** The updater with the
+progress UI lives in `/apps/init.axf` — the very partition a theme rewrites —
+and its screens are in the binary (`SetupUpdate`, `SetupOtaUpdate`,
+`ViewShowSliderUpdateProgress`, `UpdateMcu.bin`). If the app does not boot, that
+updater is gone with it. The separate u-boot-level path (`usb update probe`,
+`usb_update_efex`, `pburn` in `u-boot_nor.fex`) is USB-gadget flashing over a
+cable and does not depend on the app — but it has never been exercised.
+
+---
+
 ## Corrections to the plan's §2
 
 ### 1. IMAGEWTY padding is two regions, not one
