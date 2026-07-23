@@ -149,10 +149,11 @@ because the rule is to re-run it rather than repeat it.
 
 `init.axf` carries eleven zone names in a contiguous run of 8-byte NUL-terminated
 slots at `0x1f3569`, `CHINA … KOREA`, listed slot by slot in
-`docs/config-keys.md`. ⚠️ UNVERIFIED that a name's position in that run is the
-value `radioArea` takes — a run of strings is not an indexed array, and no code
-was disassembled. Settling it needs the reader out of `init.axf`, i.e. roadmap
-item 1 first.
+`docs/config-keys.md`. When this was written it was ⚠️ UNVERIFIED that a name's
+position in that run is the value `radioArea` takes — a run of strings is not an
+indexed array. Position 6 has since been exercised on the device and holds; see
+"A section named after the zone IS read" below. The other ten positions are still
+unexercised.
 
 ### A golden fixture for it, and why rule 11 has nothing to say
 
@@ -283,7 +284,7 @@ Eleven values differ:
 |---|---|---|
 | `[SETUP] bBackMute` | 1 | 0 |
 | `[SETUP] colorLampMode` | 0 | **6** |
-| `[CONFIG] bBackToMain` / `bBackToSource` / `bBackStopSource` | 0 / 1 / 0 | 1 / 0 / 1 |
+| `[CONFIG] bBackToMain` / `bBackToSource` / `bBackStopSource` | 0 / 1 / 0 | 1 / 0 / 1 (tried, then put back to stock) |
 | `[CAN] carType` | 22 | **19** |
 | `[RADIO] bRadioSoundAtCarPlay` | 0 | **1** |
 | `[LINK] micGain` | 70 | 65 |

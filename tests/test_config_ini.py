@@ -37,9 +37,6 @@ SECTION_COUNT = 29
 CHANGED = {
     ('SETUP', 'bBackMute'): ('1', '0'),
     ('SETUP', 'colorLampMode'): ('0', '6'),
-    ('CONFIG', 'bBackToMain'): ('0', '1'),
-    ('CONFIG', 'bBackToSource'): ('1', '0'),
-    ('CONFIG', 'bBackStopSource'): ('0', '1'),
     ('CAN', 'carType'): ('22', '19'),
     ('LINK', 'carplayVolGain'): ('88', '100'),
     ('RADIO', 'bRadioSoundAtCarPlay'): ('0', '1'),
