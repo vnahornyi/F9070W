@@ -316,6 +316,91 @@ different build. Wrong display electrical parameters are the one change in this
 whole area that a config reflash does not undo. Individual keys are cherry-picked
 onto the stock-derived working copy instead.
 
+### The floating button over CarPlay is a window with a switch, not a drawn control
+
+Removing a control was assumed to need the undecoded `DATAV1.0` layout section
+(`docs/roadmap.md` item 3). For this particular control it does not. `init.axf`
+carries, as separate strings, a config key and the view that reads it:
+
+```
+0x1ce469  bLinkDot            (key-name table; NOT a key in Config.ini)
+0x1a89e1  ViewShowWndLinkDot
+0x1a8c71  ViewShowButtonDot
+0x1b9951  ViewShowStrSwLinkDot
+```
+
+So it is a window the firmware shows or hides, and there is a settable flag
+behind it. ⚠️ UNVERIFIED that `bLinkDot=0` hides it — the reading rests on the
+naming convention (all 49 `b`-prefixed keys in the stock file take only 0 or 1)
+and on `Wnd`/`Button`/`Sw` sitting next to the key name. Nothing was
+disassembled and nothing was tried on the device.
+
+**The neighbours of that last string are the more useful find.** They are a
+contiguous run of settings-screen field names:
+
+```
+ViewShowStrLvdsBits · ViewShowStrRadioModule · ViewShowStrCarType
+ViewShowStrCarModel · ViewShowStrSwLinkDot · ViewShowStrColorLampMode
+ViewShowStrColorLampTime
+```
+
+`carType`, `carModel`, `colorLampMode` and the link-dot switch are fields on one
+screen — an engineering menu, whose password the config itself carries
+(`factoryPaswword=113266`; see `docs/hardware.md`). ⚠️ UNVERIFIED which screen and
+whether every field is editable there. If it is, three of the changes carried in
+`themes/config/Config.ini` can be tried from the menu with no flash and no
+revert step at all, which is strictly cheaper than an experiment through
+`update/`. Worth checking before the next delivery, not after.
+
+### Wallpaper, Loudness, and the EQ preset that has no key
+
+Three more defaults were asked for. Two have a key; one does not, and saying so
+is the finding.
+
+**Wallpaper.** `wallPaper` is in the key-name table and not in `Config.ini`. The
+string immediately before it in the table is `0.jpg` — the table stores a default
+next to its key here, as it does for the three passwords — so the built-in
+default is `/apps/WallPaper/0.jpg`. The rootfs ships six:
+
+```
+/apps/WallPaper/0.jpg   178936 B      /apps/WallPaper/5.JPG    86982 B
+/apps/WallPaper/2.jpg    89326 B      /apps/WallPaper/9.jpg    88004 B
+/apps/WallPaper/4.JPG     9983 B      /apps/WallPaper/12.JPG   85058 B
+```
+
+Note the mixed case: `12.JPG` is upper-case in the image, and the working copy
+spells it that way. `tests/test_config_ini.py` asserts the named file is really
+in the rootfs, because a misspelt name would leave the setting quietly doing
+nothing. ⚠️ UNVERIFIED that the key takes a bare file name rather than a path.
+
+**Loudness — not "lossless".** The bottom-left control on the audio screen is
+Loudness: `ViewShowButtonLoudness`, `ViewShowStrLoudnessSw`, and `TipBox`
+carries `LOUDNESS ON` / `LOUDNESS OFF` (`等响度`, the equal-loudness contour).
+Two keys back it, both code-only: `bLoudness` (the switch) and `loudness` (a
+level). The working copy sets `bLoudness=1` and leaves the level alone, since its
+scale is unknown. ⚠️ UNVERIFIED.
+
+**The EQ preset has no key, as far as the binary shows.** The nine presets exist
+as views — `ViewShowButtonEqUser` · `EqRock` · `EqPop` · `EqLive` · `EqDance` ·
+`EqClassic` · `EqSoft` · `EqJazz` · `EqFlat` — and the audio run of the key table
+is:
+
+```
+audioChip · audioMode · maxEqNum · eqSegNum · subwoof · subwoofGain ·
+bLoudness · loudness · minVolDB · initVolGain · audioI2cName
+```
+
+`maxEqNum` is a count of presets and `eqSegNum` a count of bands; `eq%d` and
+`bassTab` further down are per-preset curve tables. **Nothing in that run selects
+which preset is active.** `audioMode` sits next to `audioChip` and is far more
+likely a codec/routing mode. Guessing a value for it would be a change to audio
+routing made on a hunch, so nothing was added.
+
+So "Pop by default" is not settable from `Config.ini` on present evidence. Pop
+chosen in the menu persists in the settings store; it is only a Reset Factory
+that would drop it. ⚠️ UNVERIFIED whether the default preset is compiled in or
+lives in a key not in this table.
+
 ### Still open: the experiments nobody has run
 
 * **Whether a section named after the active zone is read**, i.e. whether an

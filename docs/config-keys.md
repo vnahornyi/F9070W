@@ -10,11 +10,11 @@ identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
 — splitting into 29 section lines, 311 key/value lines and 63 blank lines;
 `configparser` agrees at 29 sections and 311 keys.
 
-`themes/config/Config.ini` is the working copy. It changes eight values, adds two
-keys and adds one section, which makes it 6035 bytes; `tests/test_config_ini.py`
-declares that list and fails if anything else moves. Two of the eight are
-confirmed on hardware (`backLightMode`, `startUpDefVolume`); the rest are
-experiments. Nothing on this page comes from that copy — every value quoted below
+`themes/config/Config.ini` is the working copy. It changes nine values, adds five
+keys and adds one section, which makes it 6078 bytes; `tests/test_config_ini.py`
+declares that list and fails if anything else moves. Two of the changes are
+confirmed on hardware (`backLightMode`, `startUpDefVolume`); everything else is an
+experiment. Nothing on this page comes from that copy — every value quoted below
 is the stock one unless it says otherwise.
 
 | Change | Why | Status |
@@ -25,10 +25,16 @@ is the stock one unless it says otherwise.
 | `colorLampMode` 0→6 | red button backlight | ⚠️ UNVERIFIED |
 | `bBackMute` 1→0, `bBackToMain` 0→1, `bBackToSource` 1→0, `bBackStopSource` 0→1 | reverse-gear behaviour the developer had before | ⚠️ UNVERIFIED |
 | `bAirPlayBackground=1` added to `[LINK]` | radio audio while CarPlay is on screen | ⚠️ UNVERIFIED |
+| `bLinkDot=0` added to `[LINK]` | hide the floating button drawn over CarPlay | ⚠️ UNVERIFIED |
+| `backLightNight` 40→50 | the value the developer's earlier config carried | ⚠️ UNVERIFIED |
+| `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | ⚠️ UNVERIFIED |
+| `bLoudness=1` added to `[AUDIO]` | Loudness on by default | ⚠️ UNVERIFIED |
 | `[EUROPE]` section added | probe: is a section named after the zone read at all | ⚠️ UNVERIFIED |
 
-The last four come from `docs/roadmap.md` items 2a/2b and from the earlier
-`Config.ini` diffed in `docs/findings.md`.
+The experiments come from `docs/roadmap.md` items 2a/2b, from the `bLinkDot`
+finding, and from the earlier `Config.ini` diffed in `docs/findings.md`. None of
+them has been observed on the device; the table says so key by key rather than
+once at the top, because these are the rows most likely to be read in isolation.
 
 Two categories are distinguished throughout:
 

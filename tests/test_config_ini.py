@@ -43,12 +43,16 @@ CHANGED = {
     ('CAN', 'carType'): ('22', '19'),
     ('STARTUP', 'startUpDefVolume'): ('10', '5'),
     ('BACKLIGHT', 'backLightMode'): ('0', '2'),
+    ('BACKLIGHT', 'backLightNight'): ('40', '50'),
 }
 
 # (section, key): value - keys the stock file does not contain at all
 ADDED = {
+    ('SETUP', 'wallPaper'): '12.JPG',
+    ('AUDIO', 'bLoudness'): '1',
     ('CAN', 'carModel'): '0',
     ('LINK', 'bAirPlayBackground'): '1',
+    ('LINK', 'bLinkDot'): '0',
 }
 
 # A section the stock file does not contain, added as a copy of [AMERICA2]
@@ -163,6 +167,17 @@ def test_the_added_section_is_a_copy_of_america2_with_one_field_moved(
     assert len(was) == len(now) == 9
     assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1]
     assert now[1] == '10260'
+
+
+@pytest.mark.stock
+def test_the_wallpaper_the_working_copy_names_exists_in_the_rootfs(stock,
+                                                                  working_ini):
+    """A misspelt file name would leave the setting silently doing nothing."""
+    part = stock.partition(ROOTFS_PARTITION)
+    name = parse(working_ini)['SETUP']['wallPaper']
+    paths = {f.path for f in minfs.files(part)}
+    assert f'/apps/WallPaper/{name}' in paths
+    assert '/apps/WallPaper/0.jpg' in paths, 'the default named in init.axf'
 
 
 def test_the_new_default_volume_stays_inside_the_files_own_limits(working_ini):
