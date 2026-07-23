@@ -401,6 +401,37 @@ chosen in the menu persists in the settings store; it is only a Reset Factory
 that would drop it. ⚠️ UNVERIFIED whether the default preset is compiled in or
 lives in a key not in this table.
 
+### Per-source volume trim exists, as keys and as sliders
+
+Sources come out at different loudness — CarPlay quieter than radio, so switching
+between them means reaching for the knob. The firmware already has a per-source
+gain, and every one of them is in the stock `Config.ini`:
+
+```
+[RADIO] radioVolGain 88   [LINK]  carplayVolGain 88   [MEDIA] mediaVolGain 100
+[LINK]  linkVolGain  88   [BT]    btVolGain      90   [BT]    btmVolGain    90
+[VIDEO] auxVolGain   88   [DVD]   dvdVolGain     88   [ARM]   armVolGain    88
+[GPS]   gpsVolGain   80
+```
+
+Each has a slider view and a label in `init.axf` — `ViewShowSliderRadioVolGain`,
+`ViewShowSliderCarplayVolGain`, `ViewShowSliderMediaVolGain`,
+`ViewShowSliderBtVolGain`, `…IpodVolGain`, `…AuxVolGain`, `…ArmVolGain`,
+`…GpsVolGain`, `…DvdVolGain`, `…BtmVolGain`, `…LinkVolGain` — so they are meant
+to be trimmed from a settings screen, not only from the file. ⚠️ UNVERIFIED which
+screen and whether it needs `factoryPaswword`.
+
+Worth noting: **radio and CarPlay already carry the same 88** and are still
+reported as unequal by ear. So the imbalance is in the CarPlay path rather than
+in these numbers, and matching them is a calibration, not an arithmetic
+correction.
+
+⚠️ UNVERIFIED what scale the value is on. `mediaVolGain=100` is the highest in
+the file and `gpsVolGain=80` the lowest, which is consistent with 0–100 but does
+not establish it, nor whether values above 100 are accepted or clip. Raising a
+source is the move that risks distortion; lowering the louder source instead
+costs only maximum loudness and cannot clip.
+
 ### Still open: the experiments nobody has run
 
 * **Whether a section named after the active zone is read**, i.e. whether an
