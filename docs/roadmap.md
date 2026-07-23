@@ -64,8 +64,8 @@ A product requirement, not a format question: play FM while the CarPlay screen i
 up, and hand the audio back and forth — start a track in the CarPlay player and
 the radio goes quiet, stop it and the radio returns.
 
-**Two of the four cheap experiments are spent, both negative.** See the table
-below and `docs/findings.md`.
+**Three of the four cheap experiments are spent, all negative.** The fourth is
+in the working copy. See the table below and `docs/findings.md`.
 
 **What is already known.** `bRadioSoundAtCarPlay=1` was set and the radio still
 did not play — see "Disproven on hardware" in `docs/findings.md`. The refusal
@@ -108,7 +108,7 @@ probability of success, and a real risk of an unrecoverable unit. That is an
 estimate, not a measurement, and it is the reason the work was deliberately not
 started. Coming back to it only makes sense once recovery is proven.
 
-### The cheap experiments — 0 and 2 done, 3 in flight, 4 left
+### The cheap experiments — 0, 2 and 3 done, 4 in flight
 
 Configuration-only, each one delivered as a single `Config.ini` through `update/`
 and reverted the same way, so the risk is about as low as it gets on this device.
@@ -133,8 +133,8 @@ appeared on screen, or the source switched.
 | **0** | add `bMaxVolumeAsDefVolume=1` to `[STARTUP]` | **Done — positive.** The unit came up at 20 instead of 5, so a key absent from the stock file *is* read. That opens 2–4. It also exposed the re-read behaviour above. ⚠️ UNVERIFIED that the key means "use the maximum as the default" rather than something that merely happens to look like it. Reverted; not in `themes/config/Config.ini` |
 | 1 | `bRadioSoundAtCarPlay=1` | Control, folded into attempt 3. Reproduce the known negative result to confirm the setup measures what it claims to |
 | 2 | `bAirPlayBackground=1` in `[LINK]` | **Done — negative.** Radio stayed silent, and the source is taken **the moment the CarPlay screen is opened**, by button or by MODE, even with nothing playing. So it is not arbitration losing to an active stream: entering the screen alone claims the source. Reverted |
-| 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | **In the working copy, not yet observed.** Whether automatic output control is what grabs the source. Also re-runs attempt 1 as its control |
-| 4 | `bLinkVol=1` + `linkVol=0` | Silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source |
+| 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | **Done — negative.** Radio still stops the moment CarPlay is entered. Reverted |
+| 4 | `bLinkVol=1` + `linkVol=0` | **In the working copy, not yet observed.** The last cheap one. Silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source. If this fails too, the config route is exhausted and the item is genuinely blocked on the chain above |
 
 Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
 `bAudioOutputAutoCtrl`, `bLinkVol` and `linkVol` all appear as strings in
@@ -151,18 +151,18 @@ fifth attempt costs more than it can tell you.
 
 ---
 
-## 2b. FM presets for the EUROPE zone — **step 1 done, step 3 in flight**
+## 2b. FM presets for the EUROPE zone — **done**
 
 Wanted on the first FM page: 102.6, 99.8, 90.9, 91.3, 90.5, 92.0. FM only — AM
 was explicitly not asked for.
 
-**Step 1 came back positive.** An added `[EUROPE]` with field 2 of `FM1` set to
-`10260` put 102.6 in the first preset cell. So a section named after the active
-zone **is** read, and field 2 **is** the first preset. Step 2 was therefore never
-needed, which is why field 1 stays at the stock `7600`: nothing has measured it.
+**Done in two deliveries.** Step 1 put 102.6 in the first cell, proving a section
+named after the active zone is read and that field 2 is the first preset. Step 3
+then set all six, and all six came up: 102.6, 99.8, 90.9, 91.3, 90.5, 92.0. So
+fields 2–7 of `FM1` are the six preset cells, measured rather than inferred.
 
-`themes/config/Config.ini` now carries step 3 — all six cells — and that is what
-tests fields 3–7. See `docs/findings.md` and `docs/config-keys.md`.
+Field 1 stays at the stock `7600` and fields 8–9 are untouched: step 2, which
+would have measured field 1, was never needed. See `docs/findings.md`.
 
 The rest of the procedure is kept below as written, because if step 3 comes back
 wrong it is step 2 that says why. Each delivery is `Config.ini` alone through

@@ -10,11 +10,11 @@ identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
 — splitting into 29 section lines, 311 key/value lines and 63 blank lines;
 `configparser` agrees at 29 sections and 311 keys.
 
-`themes/config/Config.ini` is the working copy. It changes eight values, adds four keys
-and adds one section, which makes it 6067 bytes; `tests/test_config_ini.py`
-declares that list and fails if anything else moves. Five of the changes are
+`themes/config/Config.ini` is the working copy. It changes nine values, adds five keys
+and adds one section, which makes it 6060 bytes; `tests/test_config_ini.py`
+declares that list and fails if anything else moves. Six of the changes are
 confirmed on hardware (`backLightMode`, `startUpDefVolume`, `wallPaper`,
-`bLoudness`, and the fact that `[EUROPE]` is read at all); the rest are
+`bLoudness`, `colorLampMode` and the six `[EUROPE]` presets); the rest are
 experiments. Nothing on this page comes from that copy — every value quoted below
 is the stock one unless it says otherwise.
 
@@ -23,14 +23,15 @@ is the stock one unless it says otherwise.
 | `backLightMode` 0→2 | parking lights stop forcing the night theme | confirmed |
 | `startUpDefVolume` 10→5 | start at volume 5 | confirmed |
 | `carType` 22→19, `carModel=0` added | plain reverse guide lines instead of the parking-sensor scale | ⚠️ UNVERIFIED |
-| `colorLampMode` 0→6 | red button backlight | ⚠️ UNVERIFIED |
+| `colorLampMode` 0→6 | red button backlight | confirmed |
 | `bBackMute` 1→0 | no muting when reverse is engaged | ⚠️ UNVERIFIED |
-| `bRadioSoundAtCarPlay` 0→1 + `bAudioOutputAutoCtrl=0` added to `[AUDIO]` | radio audio while CarPlay is on screen, attempt 3 | ⚠️ UNVERIFIED |
+| `bRadioSoundAtCarPlay` 0→1 + `bLinkVol=1`, `linkVol=0` added to `[LINK]` | radio audio while CarPlay is on screen, attempt 4 — the last cheap one | ⚠️ UNVERIFIED |
+| `defaultSource` `Radio`→empty | the radio starts itself at every boot and has no stop control | ⚠️ UNVERIFIED |
 | `backLightNight` 40→50 | the value the developer's earlier config carried | ⚠️ UNVERIFIED |
 | `wallPaper=12.JPG` added to `[SETUP]` | that wallpaper instead of the built-in default | confirmed |
 | `bLoudness=1` added to `[AUDIO]` | Loudness on by default | confirmed |
-| `carplayVolGain` 88→100 | CarPlay is ~6 dB quieter than radio at the same setting | ⚠️ UNVERIFIED |
-| `[EUROPE]` section added, `FM1` fields 2–7 | the six wanted presets; the section is read and field 2 is measured | partly confirmed |
+| `carplayVolume` 10→15 | CarPlay runs ~5 volume steps behind radio; `carplayVolGain=100` did nothing, so this is the other lever | ⚠️ UNVERIFIED |
+| `[EUROPE]` section added, `FM1` fields 2–7 | the six wanted presets, all six on screen | confirmed |
 
 The experiments come from `docs/roadmap.md` items 2a/2b and from the earlier
 `Config.ini` diffed in `docs/findings.md`. The table carries the status key by key

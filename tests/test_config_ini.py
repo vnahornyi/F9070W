@@ -37,8 +37,9 @@ SECTION_COUNT = 29
 CHANGED = {
     ('SETUP', 'bBackMute'): ('1', '0'),
     ('SETUP', 'colorLampMode'): ('0', '6'),
+    ('CONFIG', 'defaultSource'): ('Radio', ''),
     ('CAN', 'carType'): ('22', '19'),
-    ('LINK', 'carplayVolGain'): ('88', '100'),
+    ('LINK', 'carplayVolume'): ('10', '15'),
     ('RADIO', 'bRadioSoundAtCarPlay'): ('0', '1'),
     ('STARTUP', 'startUpDefVolume'): ('10', '5'),
     ('BACKLIGHT', 'backLightMode'): ('0', '2'),
@@ -49,8 +50,9 @@ CHANGED = {
 ADDED = {
     ('SETUP', 'wallPaper'): '12.JPG',
     ('AUDIO', 'bLoudness'): '1',
-    ('AUDIO', 'bAudioOutputAutoCtrl'): '0',
     ('CAN', 'carModel'): '0',
+    ('LINK', 'bLinkVol'): '1',
+    ('LINK', 'linkVol'): '0',
 }
 
 # A section the stock file does not contain, added as a copy of [AMERICA2]
@@ -169,6 +171,15 @@ def test_the_added_section_carries_the_six_wanted_presets(golden_ini,
     assert now[1:7] == ['10260', '9980', '9090', '9130', '9050', '9200']
     assert [now[0], now[7], now[8]] == [was[0], was[7], was[8]]
     assert [i for i, (a, b) in enumerate(zip(was, now)) if a != b] == [1, 2, 3, 4, 5, 6]
+
+
+def test_clearing_a_key_writes_a_form_the_stock_file_already_uses(golden_ini,
+                                                                  working_ini):
+    """defaultSource is emptied rather than removed. Empty is attested."""
+    stock, now = flatten(golden_ini), flatten(working_ini)
+    assert [k for k, v in stock.items() if v == ''] != [], 'no empty value in stock'
+    assert now[('CONFIG', 'defaultsource')] == ''
+    assert b'\r\ndefaultSource=\r\n' in working_ini
 
 
 def test_no_source_gain_is_pushed_past_what_the_stock_file_attests(golden_ini,

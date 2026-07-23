@@ -505,6 +505,80 @@ Both disproved keys were taken back out of `themes/config/Config.ini`. A key wit
 no observed effect left in a config is noise that the next reader has to
 re-disprove.
 
+### The six presets land, and `bBackTo*` is about reverse gear, not the back button
+
+Round three on the device.
+
+**Fields 3–7 of `FM1` are presets 2–6 — confirmed.** All six cells came up as
+asked: 102.6, 99.8, 90.9, 91.3, 90.5, 92.0. With field 2 already measured, eight
+of the nine fields now have a meaning that has been observed rather than
+inferred. Field 1 remains ⚠️ UNVERIFIED — it was never changed — and so do
+fields 8–9.
+
+**`colorLampMode=6` is red — confirmed.**
+
+**B1 attempt 3 is negative.** `bAudioOutputAutoCtrl=0` with
+`bRadioSoundAtCarPlay=1`: radio audio still stops the moment CarPlay is entered.
+Three of the four cheap combinations are now spent. Removed from the working
+copy.
+
+**`carplayVolGain=100` changed nothing perceptible.** The gap stayed at about
+five volume steps. So either the key is not the lever, or the range 88→100 is
+too small to matter, or values are clamped somewhere before the output. Put back
+to the stock 88, and the other CarPlay volume key — `carplayVolume`, `10` in
+stock against `btVolume=18` for Bluetooth — is tried instead. One lever at a
+time; `15` is chosen because five steps is exactly the measured gap.
+
+### `bBackToMain` / `bBackToSource` / `bBackStopSource` are reverse-gear keys
+
+Worth writing down because the names invite exactly one wrong reading. These
+three are not about the back **button**; the `Back` in them is the reverse gear,
+the same `Back` as in `bBackMute`, `bBackOff`, `bBackLine`, `backDetectGpio`,
+`backChannelV` and `Back.data`. The key-name table places them in that company:
+
+```
+… colorLampMode · colorLampTime · wheelType · dateFormat · backDump ·
+fixWheelType · frontCameraTime · wallPaper · bArmBeep ·
+bBackToMain · bBackToSource · bBackStopSource · bCapacitiveScreen …
+```
+
+So they say what the unit does when reverse is **disengaged** — return to the
+main screen, return to the previous source, or leave the source stopped.
+⚠️ UNVERIFIED in the sense that no code was traced, but the developer's own use
+fits: `bBackStopSource=1` was being used as a way to stop the radio, by engaging
+reverse.
+
+The back button always landing on the main screen is therefore not something
+these keys govern, and no key in the table obviously does. The hardware buttons
+are mapped by code in `[MAINKEY]`, `[SCREENKEY]`, `[PANELKEY1/2]` and `[IRKEY]`,
+so changing what a button does means knowing the key-code table — which is not
+decoded. ⚠️ UNVERIFIED whether "return to previous source" exists as a code at
+all.
+
+### The radio starts itself because the config tells it to
+
+`defaultSource=Radio` in `[CONFIG]`, and there is no stop control on the radio
+screen — so the radio comes up at every start and cannot be turned off, only
+switched away from. That is the root cause of the workaround above.
+
+`defaultSource` and `defaultInterface` sit together in the key-name table, and
+the stock file leaves `defaultInterface` empty. So **empty is an attested value
+for this pair**, as it is for `startUpVideoPath=` and `audioI2cName=`. The
+working copy empties `defaultSource` rather than naming another source, because
+naming one means guessing a token.
+
+The tokens are not a mystery, for the record: `init.axf` carries a run of source
+names at `0x1a8029` — `Radio · Dab · Aux · Aux2 · AndroidAuto · CarPlayWireless ·
+AutoWireless · AirPlay · AndroidWireless · EclinkWireless · PaceWireless ·
+Miracast · YouTube` — and a separate run of screen names at `0x1a93e0` including
+`Main`. ⚠️ UNVERIFIED that either run is what these two keys are matched against.
+
+⚠️ **`defaultInterface` was deliberately left alone.** It is the one key in this
+area where a wrong value could plausibly stop the unit reaching a usable screen,
+and the `update/` recovery route runs inside the app it would break — see "The
+device updates itself from a USB stick" above. An empty `defaultSource` cannot do
+that; a made-up screen name might.
+
 ### Still open: the experiments nobody has run
 
 * **Fields 3–7 of `FM1` as presets 2–6, field 1 as the band floor, 8–9 as
