@@ -1,8 +1,9 @@
 # Roadmap
 
 Everything the foundation deliberately does **not** do. Plan `F9070W-1` §1 listed
-these as out of scope; this page turns each into an entry point so a later
-session does not have to rediscover where to start.
+most of these as out of scope; items 2a and 2b came out of `F9070W-2` the same
+way. This page turns each into an entry point so a later session does not have to
+rediscover where to start.
 
 The foundation depends on none of them. They can be picked up in any order,
 except where noted.
@@ -54,6 +55,151 @@ Note `minfs.replace()` can already write a raw `init.axf` back — it fits in th
 free tail with ~1.3 MB to spare — but ⚠️ UNVERIFIED whether the loader accepts a
 formerly-compressed file stored raw. Do not find out on a device you cannot
 recover.
+
+---
+
+## 2a. Radio audio while CarPlay is on screen — **blocked**
+
+A product requirement, not a format question: play FM while the CarPlay screen is
+up, and hand the audio back and forth — start a track in the CarPlay player and
+the radio goes quiet, stop it and the radio returns.
+
+**Nobody has run a single experiment for this.** Nothing below was tried on a
+device.
+
+**What is already known.** `bRadioSoundAtCarPlay=1` was set and the radio still
+did not play — see "Disproven on hardware" in `docs/findings.md`. The refusal
+comes from a guard inside `/apps/init.axf`, which rejects the request **by
+priority, before the config flag is consulted at all**. The strings, re-located
+in `stock/rootfs/apps/init.axf` for this page:
+
+```
+0x1a90d9  无效，CarPlay连接中
+0x1db471  Priority is low,SourceApp:%s,uiID:%d[%d<%d]
+0x1db4d1  Priority is important,SourceApp:%s,uiID:%d[%d<%d]
+```
+
+That is where a disassembler would start. So the flag is not the lever. The
+two-way hand-off the requirement actually asks for is a further step again: it is
+arbitration logic, not a switch.
+
+⚠️ UNVERIFIED, and the reason the item is worth keeping open rather than closing:
+the `uiID:%d[%d<%d]` format suggests a numeric priority system that **already
+exists**, so the change might be values rather than new logic. That is an
+inference from a format string. Nothing has been disassembled.
+
+**What would unblock it** — item 1, then item 2, in that order, and the chain is
+strict:
+
+1. Decode the MINFS chunk-table field (roadmap item 1, step 1–2).
+2. Make `melislzma.decompress()` exact. Everything downstream needs this: to
+   store `init.axf` raw you must first be able to unpack it *exactly*, or you
+   write a corrupted binary. There is no compressor at all (`AGENTS.md` rule 9).
+3. Choose how to write it back — raw into the free tail, or a real `compress()`.
+   Both depend on step 2.
+4. Disassemble RISC-V RV64 and find the guard in a 2.5 MB binary. The Chinese
+   string is the entry point for finding references to it.
+5. Patch, build, differential audit — and then stop, because this is the first
+   change that touches **code** rather than data, and the gate at the bottom of
+   this page has not moved.
+
+**Honest cost:** estimated at 40–70 hours across three or four sessions, medium
+probability of success, and a real risk of an unrecoverable unit. That is an
+estimate, not a measurement, and it is the reason the work was deliberately not
+started. Coming back to it only makes sense once recovery is proven.
+
+### The cheap experiments, none of them run
+
+Configuration-only, each one delivered as a single `Config.ini` through `update/`
+and reverted the same way, so the risk is about as low as it gets on this device.
+Expectations are low too — the guard is in the code and we know it — but a
+negative result here has its own value: it narrows the search for the patching
+route, exactly as the `bRadioSoundAtCarPlay` result already did.
+
+Change one thing at a time. After each: connect CarPlay, start a video, switch
+the radio on, and write down **what actually happened** — not "did not work", but
+whether the radio stayed silent, the CarPlay audio disappeared, a message
+appeared on screen, or the source switched.
+
+| # | Change | Hypothesis under test |
+|---|---|---|
+| **0** | add `bMaxVolumeAsDefVolume=1` to `[STARTUP]` | **Meta-test, run this first.** Does the parser read a key the stock file does not contain? Picked because a start-up volume is visible at a glance: if the key is read, the unit should come up at maximum instead of at `startUpDefVolume`. ⚠️ UNVERIFIED that the key means that — the reading comes from its name, nothing more; what matters is only whether *something* changes. **Revert it straight away.** |
+| 1 | `bRadioSoundAtCarPlay=1` | Control. Reproduce the known negative result, to confirm the setup measures what it claims to |
+| 2 | `bAirPlayBackground=1` in `[LINK]` | The most promising. Radio and media each have a background flag in the file (`bRadioBackgroundRun=1`, `bMediaBackgroundPlay=0`); CarPlay's equivalent exists only in `init.axf` |
+| 3 | `bAudioOutputAutoCtrl=0` + `bRadioSoundAtCarPlay=1` | Whether automatic output control is what grabs the source |
+| 4 | `bLinkVol=1` + `linkVol=0` | Silence CarPlay instead of arguing with the arbiter, leaving the radio as the only source |
+
+Verified for this page: `bMaxVolumeAsDefVolume`, `bAirPlayBackground`,
+`bAudioOutputAutoCtrl`, `bLinkVol` and `linkVol` all appear as strings in
+`init.axf` and **none of them is a key in `Config.ini`** (the file's only
+`linkVol`-like key is `linkVolGain`). That is what makes attempt 0 the gate:
+if the parser ignores keys that were not in the stock file, attempts 2–4 are
+impossible by construction and there is nothing to try.
+
+Attempt 0 also answers the `[EUROPE]` question in item 2b below — it is the same
+unknown wearing two hats.
+
+**Stop after four.** This is a check of cheap hypotheses, not a blind search; a
+fifth attempt costs more than it can tell you.
+
+---
+
+## 2b. FM presets for the EUROPE zone — **pending, needs hardware**
+
+Wanted on the first FM page: 102.6, 99.8, 90.9, 91.3, 90.5, 92.0. FM only — AM
+was explicitly not asked for.
+
+**Nothing has been done.** `themes/config/Config.ini` contains **no `[EUROPE]`
+section**, on purpose: writing one means asserting what the nine fields of a band
+plan mean, and no field has ever been changed and observed. See
+`docs/config-keys.md` for the two ⚠️ UNVERIFIED questions this rests on — whether
+a zone-named section is read at all, and what the nine fields are.
+
+It cannot be done by reasoning. The procedure is a short series of cheap,
+revertible deliveries, each one `Config.ini` alone through `update/`, each
+costing a power cycle (budget ~20 minutes per round):
+
+1. **Is the section read?** Add `[EUROPE]` as a copy of `[AMERICA2]`, changing
+   only field 2 of `FM1` to `10260` — 102.6 MHz is a real station, so the result
+   is audible as well as visible. Look at the first preset cell.
+   * changed → the section is read *and* field 2 is the first preset; go to 3
+   * unchanged → go to 2
+2. **Separate "section ignored" from "field 2 is not a preset."** Put `FM1`
+   back and change field 1 to `8700` instead (87.0 MHz, the usual European band
+   floor).
+   * the band's lower limit moves → the section **is** read, and fields 2–7 mean
+     something other than presets. Keep going one field at a time
+   * nothing moves → the section is **not** read. Go to 5
+3. **Set all six.** Under the confirmed reading:
+
+   ```
+   [EUROPE]
+   FM1=8700,10260,9980,9090,9130,9050,9200,10,10
+   ```
+
+   | Cell | Frequency | Value |
+   |---|---|---|
+   | 1 | 102.6 | `10260` |
+   | 2 | 99.8 | `9980` |
+   | 3 | 90.9 | `9090` |
+   | 4 | 91.3 | `9130` |
+   | 5 | 90.5 | `9050` |
+   | 6 | 92.0 | `9200` |
+
+   Leave `FM2` and `FM3` stock. Do not add `AM1`/`AM2`.
+4. Record field → meaning in `docs/findings.md` **with the proof**: what was
+   typed in and what appeared on screen. Drop `⚠️ UNVERIFIED` in
+   `docs/config-keys.md` only from the fields actually measured — not from all
+   nine.
+5. **If a zone-named section turns out not to be read**, write that down as a
+   disproof and the requirement moves into item 2a's dependency chain — the
+   defaults would then have to come from somewhere inside `init.axf`, needing the
+   same patching route as the CarPlay guard (⚠️ UNVERIFIED, that is where they
+   would be looked for, not where they have been found). That is an acceptable
+   outcome, not a failure.
+
+Run attempt 0 of item 2a before any of this. A negative answer there predicts
+step 1 fails and saves the round trip.
 
 ---
 

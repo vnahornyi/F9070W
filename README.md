@@ -72,6 +72,29 @@ cmp out/LTTF133.img stock/LTTF133.img && echo BYTE-IDENTICAL
 needs `stock/` unpacked. `make test` does not, and is what runs on a fresh
 clone.
 
+## Changing a file that is not a sprite
+
+`tools/build.py` knows about screens and sprites. `tools/patchfile.py` knows
+about nothing: it stores a local file's bytes verbatim over a path that already
+exists in the MINFS rootfs. The path must already exist — there is no create
+mode, because a typo would otherwise become a new file nobody reads and the run
+would still look successful.
+
+```bash
+./.venv/bin/python tools/patchfile.py /apps/Config.ini themes/config/Config.ini
+./.venv/bin/python tools/patchfile.py /apps/Config.ini themes/config/Config.ini --img
+```
+
+Without `--img` it writes only the patched `data_udisk.fex`; with `--img` it
+reassembles the whole `out/LTTF133.img` and recomputes the V-sums. The same
+control applies here as to a theme — feeding the stock file back unchanged
+reproduces `stock/LTTF133.img` byte for byte.
+
+`themes/config/Config.ini` is a working copy of the device configuration, two
+lines away from stock. `docs/config-keys.md` says what the keys are and marks
+what is still ⚠️ UNVERIFIED. Getting either output onto the unit is a separate
+question, and the answer is still the warning above.
+
 ## Documentation
 
 The format specifications live in `docs/`, written from re-measured data.
@@ -108,7 +131,7 @@ caught by a test. It applies to humans as much as to AI.
 
 ```
 formats/    imagewty · minfs · datav1 · melislzma
-tools/      unpack · build · verify · mkfixtures
+tools/      unpack · build · verify · patchfile · mkfixtures
 tests/      pytest; fixtures/ holds the committed golden files
 docs/       the specifications
 themes/     your PNGs

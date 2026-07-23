@@ -3,6 +3,18 @@
 `stock/rootfs/apps/Config.ini`, 5761 bytes, CRLF line endings, 29 sections,
 **311 key/value lines**. Read by `/apps/init.axf`.
 
+Re-measured on the stock partition: the MINFS entry for `/apps/Config.ini` is at
+offset 4 962 108, `stored = 5761`, `compressed = False`, and those bytes are
+identical to both `stock/rootfs/apps/Config.ini` and the golden fixture
+`tests/fixtures/Config.ini`. The file is pure CRLF — 402 `\r\n` and no bare `\n`
+— splitting into 29 section lines, 311 key/value lines and 63 blank lines;
+`configparser` agrees at 29 sections and 311 keys.
+
+`themes/config/Config.ini` is the working copy: the same file with exactly two
+lines changed (`backLightMode=0`→`2`, `startUpDefVolume=10`→`5`), which makes it
+5760 bytes. Nothing on this page comes from that copy — every value quoted below
+is the stock one unless it says otherwise.
+
 Two categories are distinguished throughout:
 
 * **present in the file** — the key literally appears in `Config.ini`, with the
@@ -15,8 +27,9 @@ Everything below was extracted from the real file and the real binary. No key on
 this page was invented.
 
 > ⚠️ Changing `Config.ini` is **not** on a verified path. The file is stored raw
-> in MINFS so `minfs.replace()` can rewrite it, but see "Checksum" at the bottom,
-> and see `docs/hardware.md`: flashing is currently forbidden.
+> in MINFS so `minfs.replace()` can rewrite it — `tools/patchfile.py` is the
+> front end for that — but see "Checksum" at the bottom, and see
+> `docs/hardware.md`: flashing is currently forbidden.
 
 ## Present in the file
 
@@ -72,6 +85,17 @@ if one is reachable.
 `startUpDefVolume=10` · `startUpMinVolume=5` · `startUpMaxVolume=20` ·
 `startUpDelayTime=1000` · `startUpResume=0` · `startUpVideoPath=`
 
+`startUpDefVolume` is the volume the unit comes up at. `themes/config/Config.ini`
+sets it to `5`, which the file's own neighbours bracket: `startUpMinVolume=5` ≤ 5
+≤ `startUpMaxVolume=20`, asserted by
+`test_the_new_default_volume_stays_inside_the_files_own_limits`.
+
+⚠️ UNVERIFIED that `startUpDefVolume=5` produces volume 5 on the device — the
+working copy has not been delivered to hardware, and nothing here says it should
+be. What would settle it: `Config.ini` alone through `update/`, a complete power
+cut, then read the volume at start. `startUpResume=0` is what should stop the
+previous session's volume from winning; that too is untested here.
+
 ### `[RADIO]` (24)
 
 `bArmRadio=1` · `radioChannelA=0` · `radioVolGain=88` · `radioMaxDac=799072` ·
@@ -85,17 +109,69 @@ if one is reachable.
 `bRadioSoundAtCarPlay=1` was tested on hardware and **does not work**. See
 `docs/findings.md` — the cause is a guard in `init.axf`, not the config.
 
-### `[AMERICA2]` and `[Brazil]` (5 each)
+#### `radioArea=6` and the zone names in `init.axf`
 
-Band plans, identical in both sections:
+`init.axf` carries a contiguous run of eleven NUL-terminated zone names in
+8-byte slots, starting at offset `0x1f3569` of `stock/rootfs/apps/init.axf`
+(2 501 564 B on disk). Each name occurs exactly once in the binary except
+`EUROPE`, whose second occurrence is the tail of `EASTEUROPE`. Measured slot by
+slot:
+
+```
+idx  offset     slot  name
+  0  0x1f3569     8  CHINA
+  1  0x1f3571    16  AMERICA1
+  2  0x1f3581     8  JAPAN
+  3  0x1f3589    16  AMERICA2
+  4  0x1f3599     8  RUSSIA
+  5  0x1f35a1     8  MIDEAST
+  6  0x1f35a9     8  EUROPE
+  7  0x1f35b1     8  BRAZIL
+  8  0x1f35b9    16  AUSTRALIA
+  9  0x1f35c9    16  EASTEUROPE
+ 10  0x1f35d9     8  KOREA
+```
+
+The run is bracketed by `fmSoftMute` before it and `RadioSave.bin` after it.
+
+⚠️ UNVERIFIED that the position in this run is the value `radioArea` takes, i.e.
+that `radioArea=6` means EUROPE. What was measured is a run of strings, not an
+indexed array — no code was disassembled. The reading is supported by the two
+band-plan sections being named `[AMERICA2]` (position 3) and `[Brazil]`
+(position 7, case aside), and by nothing else. Settling it needs the reader
+disassembled out of `init.axf`, which is blocked on `docs/roadmap.md` item 1.
+
+### `[AMERICA2]` and `[Brazil]` (5 each) — per-zone band plans
+
+The only two sections in the file named after a zone. Identical in both:
 
 ```
 FM1 = FM2 = FM3 = 7600,7600,9010,9810,10610,10800,7600,10,10
 AM1 = AM2 = 520,520,600,1000,1400,1620,520,10,10
 ```
 
-⚠️ UNVERIFIED: the meaning of the nine fields, and how `saleArea` / `radioArea`
-select between the two sections.
+There is **no `[EUROPE]` section** in the stock file, and none was added to
+`themes/config/Config.ini` — see below.
+
+⚠️ UNVERIFIED: **whether the parser looks for a section named after the current
+zone at all.** The name match `[AMERICA2]` ↔ `AMERICA2` and `[Brazil]` ↔ `BRAZIL`
+is suggestive, but no code was traced and no zone-named section has ever been
+added to a running device. The experiment is cheap and settles it in one power
+cycle: add an `[EUROPE]` section copied from `[AMERICA2]` with one field changed
+to a recognisable value, deliver only `Config.ini` through `update/`, and look at
+the FM page. It is written out as a procedure in `docs/roadmap.md`.
+
+⚠️ UNVERIFIED: **the meaning of the nine fields.** The working hypothesis is
+field 1 = band lower limit, fields 2–7 = six presets, fields 8–9 = tuning steps —
+appealing because the developer counts exactly six preset cells on the first FM
+page, and because both the FM and AM rows read the same way (values spread across
+the band, the last one back at the start). That is a hypothesis, not a
+measurement: no field has been changed and observed. Do not quote the six-preset
+reading as decoded. The experiment is one field at a time, one delivery each,
+in `docs/roadmap.md`.
+
+⚠️ UNVERIFIED: how `saleArea` (`0`) and `radioArea` (`6`) select between the two
+sections, and what happens when neither names the active zone.
 
 ### `[DVD]` (8)
 
@@ -147,6 +223,23 @@ select between the two sections.
 `backLightGain=100` · `bBackLightReverse=0` · `bBackLightPowerCtrl=1` ·
 `backLightMinValue=5` · `backLightMode=0` · `backLightDay=100` ·
 `backLightNight=40` · `backLight=100`
+
+`backLightMode` is not a boolean. Measured over the whole file: all **49** keys
+whose name starts with `b` + a capital take only `0` or `1`, while the 14
+`*Mode` / `*Type` keys range far wider (`echoCancelMode=4`, `carType=22`,
+`arrowKeyMode=-1`), so a value above 1 here is in keeping with the file's own
+convention rather than an anomaly.
+
+**`backLightMode=2` was confirmed on hardware by the developer**:
+with it set, switching the parking lights on no longer forces the unit into the
+night theme, and they observed no side effect. That is a report from direct
+observation on the device, not a measurement made here; it is what
+`themes/config/Config.ini` sets.
+
+⚠️ UNVERIFIED: what any other value of `backLightMode` does, and whether `2`
+changes how `backLightDay=100` / `backLightNight=40` are applied after dark. Only
+the daylight case was observed. The experiment is to switch the parking lights on
+in darkness and compare the panel brightness against stock.
 
 ### `[TOUCH]` (4)
 

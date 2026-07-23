@@ -126,6 +126,103 @@ cable and does not depend on the app — but it has never been exercised.
 
 ---
 
+## `Config.ini`: measured, patched, not delivered
+
+### The file itself
+
+Re-measured on the stock partition rather than taken from the plan:
+
+```
+minfs entry /apps/Config.ini   offset 4962108  stored 5761  compressed False
+partition bytes == stock/rootfs/apps/Config.ini == tests/fixtures/Config.ini : True
+5761 bytes, 402 CRLF, 0 bare LF
+29 section lines, 311 key/value lines, 63 blank lines
+configparser: 29 sections, 311 keys
+[BACKLIGHT] backLightMode = 0
+[STARTUP]   startUpDefVolume = 10, startUpMinVolume = 5, startUpMaxVolume = 20
+[RADIO]     radioArea = 6, bRadioSoundAtCarPlay = 0, bRadioBackgroundRun = 1
+zone-named sections present: ['AMERICA2', 'Brazil']   'EUROPE' in sections: False
+```
+
+Every one of those agrees with what the plan claimed, which is worth saying only
+because the rule is to re-run it rather than repeat it.
+
+`init.axf` carries eleven zone names in a contiguous run of 8-byte NUL-terminated
+slots at `0x1f3569`, `CHINA … KOREA`, listed slot by slot in
+`docs/config-keys.md`. ⚠️ UNVERIFIED that a name's position in that run is the
+value `radioArea` takes — a run of strings is not an indexed array, and no code
+was disassembled. Settling it needs the reader out of `init.axf`, i.e. roadmap
+item 1 first.
+
+### A golden fixture for it, and why rule 11 has nothing to say
+
+`tests/fixtures/Config.ini` now pins the stock file so a clone without `stock/`
+can still assert against it. Rule 11 governs *regenerating* a fixture — an
+expected value that moved is either a regression or a finding, and either needs a
+paragraph. This fixture is new: no existing expected value changed, and the bytes
+were measured identical to both the partition slice and the unpacked tree before
+being committed. There is nothing to explain, which is the point of writing it
+down.
+
+### What `tools/patchfile.py` proves
+
+Feeding the stock file back in unchanged reproduces the vendor image exactly:
+
+```
+/apps/Config.ini  5761 -> 5761 bytes, in place;  free tail 2663808 -> 2663808
+cmp out/LTTF133.img stock/LTTF133.img  ->  BYTE-IDENTICAL
+```
+
+Feeding in `themes/config/Config.ini` — the two-line change — moves exactly what
+it should and nothing else. Full differential audit, re-run for this entry:
+
+```
+payloads changed: 2 of 25 -> data_udisk.fex (DATA_UDISK_FEX00),
+                              Vdata_udisk.fex (VDATA_UDISK_FEX0)
+partition size   14614528 -> 14614528
+rootfs files     257 -> 257,  changed 1 -> ['/apps/Config.ini'],  moved 0
+compressed blobs 69,   changed 0,   init.axf identical: True
+screens 75, sprites 1128 -> 1128, changed 0
+free tail 2663808 -> 2663808
+vsum(new partition) = 0x39249d4f  ==  Vdata_udisk.fex in the new image
+```
+
+The two-key edit makes the file 5761 → 5760 bytes, so it stays in its stock slot
+and no other entry moves. The V-sum is recomputed and matches, as rule 7 requires.
+
+This is the same shape of audit that preceded the flash recorded above under
+"Confirmed on hardware", one layer narrower: that image changed two JPEGs, this
+one changes one text file.
+
+### Still open: the whole hardware half
+
+Nothing in this work was delivered to the device and nothing was flashed. What
+that leaves unanswered:
+
+* **`startUpDefVolume=5`.** ⚠️ UNVERIFIED. `backLightMode=2` is confirmed —
+  by the developer, from direct observation, and it is the *only* hardware fact
+  in this entry. The volume key rides along in the same file and has been
+  observed by nobody. What would settle it: `Config.ini` alone through `update/`,
+  a complete power cut, then read the volume at start.
+* **Whether the parser reads a section named after the active zone**, i.e.
+  whether an added `[EUROPE]` is seen at all. ⚠️ UNVERIFIED. No `[EUROPE]`
+  section was added to `themes/config/Config.ini`, deliberately — adding one and
+  writing down what its nine fields mean without having watched a screen is
+  precisely the guess rule 1 forbids.
+* **The nine fields of `FM1`/`AM1`.** ⚠️ UNVERIFIED, and specifically *not*
+  decoded. There is a hypothesis (field 1 = band floor, 2–7 = six presets,
+  8–9 = steps) and it is written down as a hypothesis in `docs/config-keys.md`.
+* **Whether the parser reads a key that was absent from the stock file.**
+  ⚠️ UNVERIFIED, and it is the cheapest question in the whole area because one
+  meta-test answers it for both the `[EUROPE]` section and every code-only key.
+  The procedure is in `docs/roadmap.md`.
+* **Radio audio while CarPlay is connected.** No new experiment was run. The
+  known negative result stands unchanged — see "Disproven on hardware" above for
+  `bRadioSoundAtCarPlay=1` and the `init.axf` guard behind it. The requirement is
+  now carried as a blocked item in `docs/roadmap.md`.
+
+---
+
 ## Corrections to the plan's §2
 
 ### 1. IMAGEWTY padding is two regions, not one
@@ -376,6 +473,11 @@ Re-measured for this document; the plan was right about these.
   loader tolerates it. Needs a device with a confirmed recovery path.
 * **`Config.ini` checksum algorithm** — unknown; assume a hand-edited file may be
   rejected.
+* **Whether `Config.ini`'s parser reads a section or a key that the stock file
+  does not contain** — one meta-test settles both; see the `Config.ini` section
+  above and `docs/roadmap.md`.
+* **The nine fields of the per-zone `FM1`/`AM1` band plans**, and whether a
+  zone's position in `init.axf`'s name run is the value of `radioArea`.
 * **The 32-byte chunk-table record fields** — see correction 5.
 * **The 32-byte sprite header's meaning** — see correction 2.
 * **The DATAV1.0 layout section** — not decoded at all; copied verbatim.
